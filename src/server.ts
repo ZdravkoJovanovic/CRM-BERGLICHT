@@ -59,7 +59,28 @@ let cachedFolderPrefixes: string[] = [];
 let folderCacheExpires = 0;
 let folderCachePromise: Promise<string[]> | null = null;
 
+const checkAWSCredentials = (): { valid: boolean; error?: string } => {
+  if (!AWS_ACCESS_KEY_ID || !AWS_SECRET_ACCESS_KEY) {
+    return {
+      valid: false,
+      error: 'AWS-Credentials nicht konfiguriert. Bitte AWS_ACCESS_KEY_ID und AWS_SECRET_ACCESS_KEY in den Environment-Variablen setzen.'
+    };
+  }
+  if (AWS_ACCESS_KEY_ID.trim() === '' || AWS_SECRET_ACCESS_KEY.trim() === '') {
+    return {
+      valid: false,
+      error: 'AWS-Credentials sind leer. Bitte AWS_ACCESS_KEY_ID und AWS_SECRET_ACCESS_KEY in den Environment-Variablen setzen.'
+    };
+  }
+  return { valid: true };
+};
+
 const fetchFolderPrefixes = async () => {
+  const credCheck = checkAWSCredentials();
+  if (!credCheck.valid) {
+    throw new Error(credCheck.error);
+  }
+
   const prefixes: string[] = [];
   let continuationToken: string | undefined;
 
@@ -145,6 +166,11 @@ const findFolderMatch = async (query: string) => {
 };
 
 const listFolderObjects = async (rawPrefix: string) => {
+  const credCheck = checkAWSCredentials();
+  if (!credCheck.valid) {
+    throw new Error(credCheck.error);
+  }
+
   const trimmed = normalizePrefix(rawPrefix);
   const effectivePrefix = trimmed ? ensureTrailingSlash(trimmed) : '';
   const objects: S3Object[] = [];
@@ -200,6 +226,15 @@ app.use('/api/leads', leadsRouter);
 app.use('/api/project6', project6Router);
 
 app.post('/api/stammdaten/search', async (req, res) => {
+  const credCheck = checkAWSCredentials();
+  if (!credCheck.valid) {
+    return res.status(503).json({ 
+      success: false, 
+      error: credCheck.error,
+      code: 'AWS_CREDENTIALS_MISSING'
+    });
+  }
+
   const { query } = req.body;
   const rawPrefix = typeof query === 'string' ? query.trim() : '';
 
@@ -253,6 +288,15 @@ app.post('/api/stammdaten/search', async (req, res) => {
 });
 
 app.get('/api/stammdaten/download', async (req, res) => {
+  const credCheck = checkAWSCredentials();
+  if (!credCheck.valid) {
+    return res.status(503).json({ 
+      success: false, 
+      error: credCheck.error,
+      code: 'AWS_CREDENTIALS_MISSING'
+    });
+  }
+
   const rawPrefix = typeof req.query.prefix === 'string' ? req.query.prefix : '';
 
   if (!rawPrefix) {
@@ -331,6 +375,15 @@ app.get('/api/stammdaten/list', async (_req, res) => {
 });
 
 app.post('/api/stammdaten/download-bulk', async (req, res) => {
+  const credCheck = checkAWSCredentials();
+  if (!credCheck.valid) {
+    return res.status(503).json({ 
+      success: false, 
+      error: credCheck.error,
+      code: 'AWS_CREDENTIALS_MISSING'
+    });
+  }
+
   const entriesInput: any[] = Array.isArray(req.body?.entries) ? req.body.entries : [];
 
   const mappedEntries: BulkDownloadEntry[] = entriesInput.map((entry: any, index: number) => {
@@ -413,8 +466,9 @@ const ALL_BUCKETS = [
 ];
 
 const calculateBucketSize = async (bucketName: string): Promise<{ size: number; objectCount: number }> => {
-  if (!AWS_ACCESS_KEY_ID || !AWS_SECRET_ACCESS_KEY) {
-    throw new Error('AWS-Credentials nicht konfiguriert');
+  const credCheck = checkAWSCredentials();
+  if (!credCheck.valid) {
+    throw new Error(credCheck.error);
   }
 
   let totalSize = 0;
@@ -444,6 +498,15 @@ const calculateBucketSize = async (bucketName: string): Promise<{ size: number; 
 };
 
 app.get('/api/stammdaten/bucket-stats', async (_req, res) => {
+  const credCheck = checkAWSCredentials();
+  if (!credCheck.valid) {
+    return res.status(503).json({ 
+      success: false, 
+      error: credCheck.error,
+      code: 'AWS_CREDENTIALS_MISSING'
+    });
+  }
+
   try {
     const results = await Promise.allSettled(
       ALL_BUCKETS.map(async (bucketName) => {
@@ -502,6 +565,11 @@ app.get('/api/stammdaten/bucket-stats', async (_req, res) => {
 });
 
 const listAllBucketObjects = async (bucketName: string): Promise<S3Object[]> => {
+  const credCheck = checkAWSCredentials();
+  if (!credCheck.valid) {
+    throw new Error(credCheck.error);
+  }
+
   const objects: S3Object[] = [];
   let continuationToken: string | undefined;
 
@@ -527,6 +595,15 @@ const listAllBucketObjects = async (bucketName: string): Promise<S3Object[]> => 
 };
 
 app.get('/api/stammdaten/download-all-buckets', async (_req, res) => {
+  const credCheck = checkAWSCredentials();
+  if (!credCheck.valid) {
+    return res.status(503).json({ 
+      success: false, 
+      error: credCheck.error,
+      code: 'AWS_CREDENTIALS_MISSING'
+    });
+  }
+
   try {
     console.log('[STAMMDATEN] Starte Download aller Buckets...');
 
