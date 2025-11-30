@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Leads - NEUROVIA</title>
+    <link href="styles.css" rel="stylesheet">
+    <style>
+        .brand-text {
+            background: linear-gradient(90deg, 
+                #ffffff 0%, 
+                #9ca3af 25%, 
+                #ffffff 50%, 
+                #9ca3af 75%, 
+                #ffffff 100%
+            );
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shine 3s linear infinite;
+            font-size: 20px;
+        }
+        
+        @keyframes shine {
+            to {
+                background-position: 200% center;
+            }
+        }
+        
+        .menu-icon {
+            cursor: pointer;
+            width: 36px;
+            height: 36px;
+            border: 3px solid #30363d;
+        }
+        
+        .menu-icon:hover {
+            border-color: #58a6ff;
+        }
+        
+        .avatar-circle {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .avatar-circle:hover {
+            transform: scale(1.05);
+        }
+        
+        .search-bar {
+            width: 180px;
+            transition: width 0.3s ease;
+            background-color: #0d1117;
+            border: 3px solid #30363d;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            outline: none;
+            font-size: 13px;
+        }
+        
+        .search-bar:focus {
+            width: 320px;
+            border-color: #58a6ff;
+        }
+        
+        .search-bar::placeholder {
+            color: #8b949e;
+            font-size: 13px;
+        }
+        
+        .copilot-button {
+            position: relative;
+            background-color: #0d1117;
+            border: 3px solid #30363d;
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .copilot-button:hover {
+            border-color: #58a6ff;
+        }
+        
+        .copilot-tooltip {
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-10px);
+            margin-top: 8px;
+            background-color: #010409;
+            border: 3px solid #30363d;
+            border-radius: 6px;
+            padding: 10px 14px;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 1001;
+        }
+        
+        .copilot-button:hover .copilot-tooltip {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0);
+        }
+        
+        .copilot-tooltip-text {
+            color: #8b949e;
+            font-size: 13px;
+        }
+        
+        /* Hidden Menu Styles */
+        .hidden-menu {
+            position: fixed;
+            top: 0;
+            left: -100%;
+            width: 280px;
+            height: 100vh;
+            background-color: #0d1117;
+            z-index: 2000;
+            transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 2px 0 12px rgba(0, 0, 0, 0.5);
+        }
+        
+        .hidden-menu.active {
+            left: 0;
+        }
+        
+        .menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.6);
+            z-index: 1999;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.4s ease, visibility 0.4s ease;
+        }
+        
+        .menu-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .menu-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px;
+            border-bottom: 1px solid #30363d;
+        }
+        
+        .menu-brand {
+            background: linear-gradient(90deg, 
+                #ffffff 0%, 
+                #9ca3af 25%, 
+                #ffffff 50%, 
+                #9ca3af 75%, 
+                #ffffff 100%
+            );
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shine 3s linear infinite;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .close-icon {
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            transition: background-color 0.2s;
+        }
+        
+        .close-icon:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .menu-items {
+            padding: 20px 0;
+        }
+        
+        .menu-item {
+            display: flex;
+            align-items: center;
+            padding: 14px 24px;
+            color: #c9d1d9;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
+        }
+        
+        .menu-item:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            border-left-color: #58a6ff;
+            color: #ffffff;
+        }
+        
+        .menu-item.active {
+            background-color: rgba(88, 166, 255, 0.1);
+            border-left-color: #58a6ff;
+            color: #58a6ff;
+        }
+    </style>
+</head>
+<body style="background-color: #0d1117;">
+    <!-- Menu Overlay -->
+    <div class="menu-overlay" id="menuOverlay"></div>
+    
+    <!-- Hidden Menu -->
+    <div class="hidden-menu" id="hiddenMenu">
+        <!-- Menu Header -->
+        <div class="menu-header">
+            <div class="menu-brand">NEUROVIA</div>
+            <div class="close-icon" id="closeMenuBtn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 6L6 18M6 6L18 18" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </div>
+        </div>
+        
+        <!-- Menu Items -->
+        <div class="menu-items">
+            <div class="menu-item" data-page="home" onclick="window.location.href='/'">
+                <span>Home</span>
+            </div>
+            <div class="menu-item" data-page="glm" onclick="window.location.href='/glm'">
+                <span>GEO LEAD MAPPING</span>
+            </div>
+            <div class="menu-item active" data-page="team-leads" onclick="window.location.href='/team-leads'">
+                <span>Team Leads</span>
+            </div>
+            <div class="menu-item" data-page="project-6" onclick="window.location.href='/project-6'">
+                <span>Project-6</span>
+            </div>
+            <div class="menu-item" data-page="database" onclick="window.location.href='/database'">
+                <span>Database</span>
+            </div>
+            <div class="menu-item" data-page="stammdaten" onclick="window.location.href='/stammdaten'">
+                <span>Stammdaten</span>
+            </div>
+            <div class="menu-item" data-page="settings">
+                <span>Settings</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Navigation Bar -->
+    <nav class="fixed top-0 left-0 w-full flex items-center justify-between px-6 py-4" style="background-color: #010409; z-index: 1000;">
+        <!-- Left Side -->
+        <div class="flex items-center">
+            <!-- Menu Icon -->
+            <button class="menu-icon flex items-center justify-center rounded-md transition-colors" id="menuBtn">
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <line x1="3" y1="5" x2="17" y2="5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                    <line x1="3" y1="10" x2="17" y2="10" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                    <line x1="3" y1="15" x2="17" y2="15" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+            </button>
+            
+            <!-- Brand Name -->
+            <h1 class="brand-text ml-4 font-bold">NEUROVIA</h1>
+        </div>
+        
+        <!-- Right Side -->
+        <div class="flex items-center gap-3">
+            <!-- Co-Pilot Button -->
+            <div class="copilot-button">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="white"/>
+                    <path d="M19 4L20 7L23 8L20 9L19 12L18 9L15 8L18 7L19 4Z" fill="white"/>
+                </svg>
+                <div class="copilot-tooltip">
+                    <span class="copilot-tooltip-text">Co-Pilot AI Function soon available</span>
+                </div>
+            </div>
+            
+            <!-- Search Bar -->
+            <input 
+                type="text" 
+                class="search-bar" 
+                placeholder="Type / to search"
+            />
+            
+            <!-- Avatar Circle -->
+            <div class="avatar-circle"></div>
+        </div>
+    </nav>
+    
+    <div class="min-h-screen flex flex-col items-center justify-center p-4" style="padding-top: 120px;">
+        <!-- Team Leads Container -->
+        <div style="position: absolute; top: 120px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 1200px;">
+            <!-- Team Leads Box -->
+            <div style="
+                width: 100%;
+                background-color: rgba(255, 255, 255, 0.03);
+                border: 1px solid #30363d;
+                border-radius: 8px;
+                overflow: hidden;
+            ">
+                <!-- Navbar Header -->
+                <div style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 12px 20px;
+                    border-bottom: 1px solid #30363d;
+                    background-color: transparent;
+                ">
+                    <span style="font-size: 0.95rem; color: #58a6ff; font-weight: 600;">Team - Leads</span>
+                    <span id="teamLeadsCount" style="font-size: 0.95rem; color: white; font-weight: 600;">-</span>
+                </div>
+                
+                <!-- Content Area -->
+                <div style="padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 20px;">
+                    <!-- Start Scraping Button -->
+                    <button 
+                        id="startScrapingBtn"
+                        style="
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            border: none;
+                            color: white;
+                            font-size: 0.95rem;
+                            padding: 12px 32px;
+                            border-radius: 8px;
+                            cursor: pointer;
+                            font-weight: 600;
+                            transition: transform 0.2s, box-shadow 0.2s;
+                            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+                        "
+                        onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(102, 126, 234, 0.4)'"
+                        onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.3)'"
+                    >
+                        Start Scraping
+                    </button>
+                    
+                    <!-- Progress Container (hidden by default) -->
+                    <div id="progressContainer" style="display: none; width: 80%; max-width: 600px;">
+                        <!-- Status Text -->
+                        <div id="statusText" style="
+                            color: #8b949e; 
+                            font-size: 0.875rem; 
+                            text-align: center;
+                            margin-bottom: 10px;
+                        ">
+                            Starte...
+                        </div>
+                        
+                        <!-- Progress Bar -->
+                        <div style="
+                            width: 100%;
+                            height: 32px;
+                            background-color: rgba(255, 255, 255, 0.05);
+                            border: 1px solid #30363d;
+                            border-radius: 16px;
+                            overflow: hidden;
+                            position: relative;
+                        ">
+                            <div id="progressBar" style="
+                                height: 100%;
+                                background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+                                width: 0%;
+                                transition: width 0.3s ease;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                            ">
+                                <span id="progressText" style="
+                                    color: white;
+                                    font-size: 0.75rem;
+                                    font-weight: 600;
+                                    position: absolute;
+                                    left: 50%;
+                                    transform: translateX(-50%);
+                                ">0%</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Details Text -->
+                        <div id="detailsText" style="
+                            color: #58a6ff; 
+                            font-size: 0.75rem; 
+                            text-align: center;
+                            margin-top: 10px;
+                        ">
+                            &nbsp;
+                        </div>
+                    </div>
+                    
+                    <!-- Results (hidden by default) -->
+                    <div id="resultsContainer" style="display: none; width: 80%; max-width: 600px;">
+                        <div style="
+                            background-color: rgba(102, 126, 234, 0.1);
+                            border: 1px solid #667eea;
+                            border-radius: 8px;
+                            padding: 16px;
+                            text-align: center;
+                        ">
+                            <div style="color: #58a6ff; font-size: 0.875rem; margin-bottom: 8px;">
+                                ✅ Scraping abgeschlossen!
+                            </div>
+                            <div style="color: white; font-size: 1.2rem; font-weight: 600;">
+                                <span id="totalLeadsScraped">0</span> Leads
+                            </div>
+                            <div style="color: #8b949e; font-size: 0.75rem; margin-top: 4px;">
+                                von <span id="totalMitarbeiterProcessed">0</span> Mitarbeitern
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Menu Toggle Functionality
+        const menuBtn = document.getElementById('menuBtn');
+        const closeMenuBtn = document.getElementById('closeMenuBtn');
+        const hiddenMenu = document.getElementById('hiddenMenu');
+        const menuOverlay = document.getElementById('menuOverlay');
+        
+        function openMenu() {
+            hiddenMenu.classList.add('active');
+            menuOverlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closeMenu() {
+            hiddenMenu.classList.remove('active');
+            menuOverlay.classList.remove('active');
+            document.body.style.overflow = 'auto';
+        }
+        
+        menuBtn.addEventListener('click', openMenu);
+        closeMenuBtn.addEventListener('click', closeMenu);
+        menuOverlay.addEventListener('click', closeMenu);
+        
+        // Close menu with ESC key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && hiddenMenu.classList.contains('active')) {
+                closeMenu();
+            }
+        });
+        
+        // Socket.io Setup
+        const socket = io();
+        const teamLeadsCount = document.getElementById('teamLeadsCount');
+        const startScrapingBtn = document.getElementById('startScrapingBtn');
+        const progressContainer = document.getElementById('progressContainer');
+        const statusText = document.getElementById('statusText');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const detailsText = document.getElementById('detailsText');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const totalLeadsScraped = document.getElementById('totalLeadsScraped');
+        const totalMitarbeiterProcessed = document.getElementById('totalMitarbeiterProcessed');
+        
+        // Load Team Leads Count
+        function loadTeamLeads() {
+            console.log('[TEAM-LEADS] Lade aus DB...');
+            teamLeadsCount.textContent = '...';
+            socket.emit('count-total-leads');
+        }
+        
+        // Start Scraping
+        async function startScraping() {
+            console.log('[SCRAPING] Starte...');
+            
+            // Reset UI
+            startScrapingBtn.disabled = true;
+            startScrapingBtn.textContent = 'Läuft...';
+            progressContainer.style.display = 'block';
+            resultsContainer.style.display = 'none';
+            progressBar.style.width = '0%';
+            progressText.textContent = '0%';
+            statusText.textContent = 'Starte...';
+            detailsText.innerHTML = '&nbsp;';
+            
+            try {
+                const response = await fetch('/api/leads/scrape-all', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ socketId: socket.id })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Scraping fehlgeschlagen');
+                }
+                
+                // Erfolg wird über Socket.io gehandhabt
+                
+            } catch (error) {
+                console.error('[SCRAPING] Fehler:', error);
+                statusText.textContent = 'Fehler: ' + error.message;
+                statusText.style.color = '#ff3b3b';
+                startScrapingBtn.disabled = false;
+                startScrapingBtn.textContent = 'Start Scraping';
+            }
+        }
+        
+        // Button Click Event
+        startScrapingBtn.addEventListener('click', startScraping);
+        
+        // Socket Events
+        socket.on('connect', () => {
+            console.log('[SOCKET] Verbunden:', socket.id);
+            loadTeamLeads();
+        });
+        
+        socket.on('total-leads-result', (data) => {
+            console.log('[TEAM-LEADS] Ergebnis:', data);
+            if (data.success) {
+                teamLeadsCount.textContent = data.totalLeads.toLocaleString('de-DE');
+            } else {
+                teamLeadsCount.textContent = 'Fehler';
+            }
+        });
+        
+        // Scraping Events
+        socket.on('leads-scrape-status', (data) => {
+            console.log('[SCRAPING] Status:', data);
+            statusText.textContent = data.message;
+            statusText.style.color = '#8b949e';
+            progressBar.style.width = data.progress + '%';
+            progressText.textContent = data.progress + '%';
+            
+            if (data.current && data.total) {
+                detailsText.textContent = `${data.current} / ${data.total} Mitarbeiter`;
+            }
+        });
+        
+        socket.on('leads-scrape-complete', (data) => {
+            console.log('[SCRAPING] Fertig:', data);
+            statusText.textContent = 'Abgeschlossen!';
+            statusText.style.color = '#24e39a';
+            progressBar.style.width = '100%';
+            progressText.textContent = '100%';
+            
+            // Zeige Ergebnisse
+            setTimeout(() => {
+                progressContainer.style.display = 'none';
+                resultsContainer.style.display = 'block';
+                totalLeadsScraped.textContent = data.leads.toLocaleString('de-DE');
+                totalMitarbeiterProcessed.textContent = data.mitarbeiter.toLocaleString('de-DE');
+                
+                // Re-enable Button
+                startScrapingBtn.disabled = false;
+                startScrapingBtn.textContent = 'Start Scraping';
+                
+                // Reload Leads Count
+                loadTeamLeads();
+            }, 1500);
+        });
+        
+        socket.on('leads-scrape-error', (data) => {
+            console.error('[SCRAPING] Fehler:', data);
+            statusText.textContent = 'Fehler: ' + data.error;
+            statusText.style.color = '#ff3b3b';
+            startScrapingBtn.disabled = false;
+            startScrapingBtn.textContent = 'Start Scraping';
+        });
+    </script>
+</body>
+</html>
+

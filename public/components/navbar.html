@@ -1,0 +1,52 @@
+<nav class="fixed top-0 left-0 w-full flex items-center px-6 py-4" style="background-color: #010409; z-index: 1000;">
+    <!-- Menu Icon -->
+    <button class="menu-icon flex items-center justify-center w-10 h-10 border border-gray-700 rounded-md hover:border-gray-500 transition-colors">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <line x1="3" y1="5" x2="17" y2="5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+            <line x1="3" y1="10" x2="17" y2="10" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+            <line x1="3" y1="15" x2="17" y2="15" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+    </button>
+    
+    <!-- Brand Name -->
+    <h1 class="brand-text ml-4 text-2xl font-bold">NEUROVIA</h1>
+</nav>
+
+<style>
+    .brand-text {
+        background: linear-gradient(90deg, 
+            #ffffff 0%, 
+            #9ca3af 25%, 
+            #ffffff 50%, 
+            #9ca3af 75%, 
+            #ffffff 100%
+        );
+        background-size: 200% auto;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        animation: shine 3s linear infinite;
+    }
+    
+    @keyframes shine {
+        to {
+            background-position: 200% center;
+        }
+    }
+    
+    .menu-icon {
+        cursor: pointer;
+    }
+</style>
+
+
+
+
+
+
+
+
+
+
+
+

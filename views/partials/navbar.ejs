@@ -1,0 +1,324 @@
+<style>
+    .brand-text {
+        background: linear-gradient(90deg, 
+            #ffffff 0%, 
+            #9ca3af 25%, 
+            #ffffff 50%, 
+            #9ca3af 75%, 
+            #ffffff 100%
+        );
+        background-size: 200% auto;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        animation: shine 3s linear infinite;
+        font-size: 20px;
+    }
+    
+    @keyframes shine {
+        to {
+            background-position: 200% center;
+        }
+    }
+    
+    .menu-icon {
+        cursor: pointer;
+        width: 36px;
+        height: 36px;
+        border: 3px solid #30363d;
+    }
+    
+    .menu-icon:hover {
+        border-color: #58a6ff;
+    }
+    
+    .avatar-circle {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+    
+    .avatar-circle:hover {
+        transform: scale(1.05);
+    }
+    
+    .search-bar {
+        width: 180px;
+        transition: width 0.3s ease;
+        background-color: #0d1117;
+        border: 3px solid #30363d;
+        color: white;
+        padding: 6px 12px;
+        border-radius: 6px;
+        outline: none;
+        font-size: 13px;
+    }
+    
+    .search-bar:focus {
+        width: 320px;
+        border-color: #58a6ff;
+    }
+    
+    .search-bar::placeholder {
+        color: #8b949e;
+        font-size: 13px;
+    }
+    
+    .copilot-button {
+        position: relative;
+        background-color: #0d1117;
+        border: 3px solid #30363d;
+        padding: 6px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .copilot-button:hover {
+        border-color: #58a6ff;
+    }
+    
+    .copilot-tooltip {
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%) translateY(-10px);
+        margin-top: 8px;
+        background-color: #010409;
+        border: 3px solid #30363d;
+        border-radius: 6px;
+        padding: 10px 14px;
+        white-space: nowrap;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        z-index: 1001;
+    }
+    
+    .copilot-button:hover .copilot-tooltip {
+        opacity: 1;
+        visibility: visible;
+        transform: translateX(-50%) translateY(0);
+    }
+    
+    .copilot-tooltip-text {
+        color: #8b949e;
+        font-size: 13px;
+    }
+    
+    /* Hidden Menu Styles */
+    .hidden-menu {
+        position: fixed;
+        top: 0;
+        left: -100%;
+        width: 280px;
+        height: 100vh;
+        background-color: #0d1117;
+        z-index: 2000;
+        transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 2px 0 12px rgba(0, 0, 0, 0.5);
+    }
+    
+    .hidden-menu.active {
+        left: 0;
+    }
+    
+    .menu-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100vh;
+        background-color: rgba(0, 0, 0, 0.6);
+        z-index: 1999;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.4s ease, visibility 0.4s ease;
+    }
+    
+    .menu-overlay.active {
+        opacity: 1;
+        visibility: visible;
+    }
+    
+    .menu-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 20px;
+        border-bottom: 1px solid #30363d;
+    }
+    
+    .menu-brand {
+        background: linear-gradient(90deg, 
+            #ffffff 0%, 
+            #9ca3af 25%, 
+            #ffffff 50%, 
+            #9ca3af 75%, 
+            #ffffff 100%
+        );
+        background-size: 200% auto;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        animation: shine 3s linear infinite;
+        font-size: 16px;
+        font-weight: bold;
+    }
+    
+    .close-icon {
+        cursor: pointer;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        transition: background-color 0.2s;
+    }
+    
+    .close-icon:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .menu-items {
+        padding: 20px 0;
+    }
+    
+    .menu-item {
+        display: flex;
+        align-items: center;
+        padding: 14px 24px;
+        color: #c9d1d9;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border-left: 3px solid transparent;
+    }
+    
+    .menu-item:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+        border-left-color: #58a6ff;
+        color: #ffffff;
+    }
+    
+    .menu-item.active {
+        background-color: rgba(88, 166, 255, 0.1);
+        border-left-color: #58a6ff;
+        color: #58a6ff;
+    }
+</style>
+
+<!-- Menu Overlay -->
+<div class="menu-overlay" id="menuOverlay"></div>
+
+<!-- Hidden Menu -->
+<div class="hidden-menu" id="hiddenMenu">
+    <!-- Menu Header -->
+    <div class="menu-header">
+        <div class="menu-brand">NEUROVIA</div>
+        <div class="close-icon" id="closeMenuBtn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M18 6L6 18M6 6L18 18" stroke="white" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </div>
+    </div>
+    
+    <!-- Menu Items -->
+    <div class="menu-items">
+        <div class="menu-item <%= currentPage === 'home' ? 'active' : '' %>" data-page="home" onclick="window.location.href='/'">
+            <span>Home</span>
+        </div>
+        <div class="menu-item <%= currentPage === 'glm' ? 'active' : '' %>" data-page="glm" onclick="window.location.href='/glm'">
+            <span>GEO LEAD MAPPING</span>
+        </div>
+        <div class="menu-item <%= currentPage === 'database' ? 'active' : '' %>" data-page="database" onclick="window.location.href='/database'">
+            <span>Database</span>
+        </div>
+        <div class="menu-item <%= currentPage === 'stammdaten' ? 'active' : '' %>" data-page="stammdaten" onclick="window.location.href='/stammdaten'">
+            <span>Stammdaten</span>
+        </div>
+        <div class="menu-item <%= currentPage === 'settings' ? 'active' : '' %>" data-page="settings">
+            <span>Settings</span>
+        </div>
+    </div>
+</div>
+
+<!-- Navigation Bar -->
+<nav class="fixed top-0 left-0 w-full flex items-center justify-between px-6 py-4" style="background-color: #010409; z-index: 1000;">
+    <!-- Left Side -->
+    <div class="flex items-center">
+        <!-- Menu Icon -->
+        <button class="menu-icon flex items-center justify-center rounded-md transition-colors" id="menuBtn">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <line x1="3" y1="5" x2="17" y2="5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="3" y1="10" x2="17" y2="10" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="3" y1="15" x2="17" y2="15" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+        </button>
+        
+        <!-- Brand Name -->
+        <h1 class="brand-text ml-4 font-bold">NEUROVIA</h1>
+    </div>
+    
+    <!-- Right Side -->
+    <div class="flex items-center gap-3">
+        <!-- Co-Pilot Button -->
+        <div class="copilot-button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="white"/>
+                <path d="M19 4L20 7L23 8L20 9L19 12L18 9L15 8L18 7L19 4Z" fill="white"/>
+            </svg>
+            <div class="copilot-tooltip">
+                <span class="copilot-tooltip-text">Co-Pilot AI Function soon available</span>
+            </div>
+        </div>
+        
+        <!-- Search Bar -->
+        <input 
+            type="text" 
+            class="search-bar" 
+            placeholder="Type / to search"
+        />
+        
+        <!-- Avatar Circle -->
+        <div class="avatar-circle"></div>
+    </div>
+</nav>
+
+<script>
+    // Menu Toggle Functionality
+    const menuBtn = document.getElementById('menuBtn');
+    const closeMenuBtn = document.getElementById('closeMenuBtn');
+    const hiddenMenu = document.getElementById('hiddenMenu');
+    const menuOverlay = document.getElementById('menuOverlay');
+    const menuItems = document.querySelectorAll('.menu-item');
+    
+    function openMenu() {
+        hiddenMenu.classList.add('active');
+        menuOverlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+    
+    function closeMenu() {
+        hiddenMenu.classList.remove('active');
+        menuOverlay.classList.remove('active');
+        document.body.style.overflow = 'auto';
+    }
+    
+    menuBtn.addEventListener('click', openMenu);
+    closeMenuBtn.addEventListener('click', closeMenu);
+    menuOverlay.addEventListener('click', closeMenu);
+    
+    // Close menu with ESC key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && hiddenMenu.classList.contains('active')) {
+            closeMenu();
+        }
+    });
+</script>
+

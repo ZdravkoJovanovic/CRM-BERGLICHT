@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %> - NEUROVIA</title>
+    <link href="/styles.css" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        
+        #canvas {
+            position: fixed;
+            top: 80px;
+            left: 0;
+            width: 100%;
+            height: calc(100vh - 80px);
+            background-color: #0d1117;
+            cursor: grab;
+        }
+        
+        #canvas:active {
+            cursor: grabbing;
+        }
+        
+        .zoom-info {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: rgba(13, 17, 23, 0.9);
+            border: 2px solid #30363d;
+            border-radius: 8px;
+            padding: 10px 15px;
+            color: #8b949e;
+            font-size: 13px;
+            z-index: 999;
+        }
+    </style>
+</head>
+<body style="background-color: #0d1117;">
+    <%- include('partials/navbar', { currentPage: 'database' }) %>
+    
+    <canvas id="canvas"></canvas>
+    
+    <div class="zoom-info">
+        <div style="margin-bottom: 10px;">
+            <div style="font-size: 14px; font-weight: 600; color: #c9d1d9; margin-bottom: 8px;">
+                Mitarbeiter suchen
+            </div>
+            <input 
+                type="text"
+                id="searchInput"
+                placeholder="Name eingeben..."
+                style="
+                    width: 100%;
+                    background-color: #0d1117;
+                    border: 2px solid #30363d;
+                    color: white;
+                    padding: 8px 12px;
+                    border-radius: 6px;
+                    font-size: 13px;
+                    outline: none;
+                    margin-bottom: 8px;
+                "
+                onfocus="this.style.borderColor='#58a6ff'"
+                onblur="this.style.borderColor='#30363d'"
+            />
+            
+            <!-- Toggle Switch für Alle/Direkte -->
+            <div style="
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 8px;
+                padding: 8px;
+                background-color: rgba(48, 54, 61, 0.3);
+                border-radius: 6px;
+            ">
+                <span style="font-size: 12px; color: #8b949e;">
+                    Nur Direkte
+                </span>
+                <label style="
+                    position: relative;
+                    display: inline-block;
+                    width: 44px;
+                    height: 24px;
+                    cursor: pointer;
+                ">
+                    <input type="checkbox" id="toggleAll" style="opacity: 0; width: 0; height: 0;">
+                    <span style="
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        bottom: 0;
+                        background-color: #30363d;
+                        border-radius: 24px;
+                        transition: 0.3s;
+                    " id="toggleSlider"></span>
+                    <span style="
+                        position: absolute;
+                        content: '';
+                        height: 18px;
+                        width: 18px;
+                        left: 3px;
+                        bottom: 3px;
+                        background-color: white;
+                        border-radius: 50%;
+                        transition: 0.3s;
+                    " id="toggleButton"></span>
+                </label>
+                <span style="font-size: 12px; color: #8b949e;">
+                    Alle Mitarbeiter
+                </span>
+            </div>
+            
+            <div id="searchResults" style="
+                font-size: 11px;
+                color: #8b949e;
+                margin-bottom: 8px;
+            ">
+                Gib einen Namen ein...
+            </div>
+            
+            <!-- Organigramm Initial Laden Button -->
+            <button 
+                id="loadOrgBtn"
+                style="
+                    width: 100%;
+                    background-color: #58a6ff;
+                    border: none;
+                    color: white;
+                    padding: 8px 12px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 12px;
+                    font-weight: 500;
+                    transition: all 0.2s;
+                    margin-bottom: 8px;
+                "
+                onmouseover="this.style.backgroundColor='#1f6feb'"
+                onmouseout="this.style.backgroundColor='#58a6ff'"
+            >
+                1. Organigramm laden
+            </button>
+            
+            <!-- Telefonnummern Button -->
+            <button 
+                id="fetchTelefonBtn"
+                style="
+                    width: 100%;
+                    background-color: #3fb950;
+                    border: none;
+                    color: white;
+                    padding: 8px 12px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 12px;
+                    font-weight: 500;
+                    transition: all 0.2s;
+                    display: none;
+                    margin-bottom: 8px;
+                "
+                onmouseover="this.style.backgroundColor='#2ea043'"
+                onmouseout="this.style.backgroundColor='#3fb950'"
+            >
+                2. Telefonnummern laden
+            </button>
+            
+            <!-- E-Formulare Button -->
+            <button 
+                id="checkFormulareBtn"
+                style="
+                    width: 100%;
+                    background-color: #ff9500;
+                    border: none;
+                    color: white;
+                    padding: 8px 12px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 12px;
+                    font-weight: 500;
+                    transition: all 0.2s;
+                    display: none;
+                "
+                onmouseover="this.style.backgroundColor='#e58600'"
+                onmouseout="this.style.backgroundColor='#ff9500'"
+            >
+                3. E-Formulare pruefen
+            </button>
+        </div>
+        
+        <div id="statusMessage" style="
+            display: none;
+            margin-bottom: 10px;
+            padding: 8px;
+            background-color: rgba(88, 166, 255, 0.1);
+            border: 1px solid #58a6ff;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #58a6ff;
+            max-width: 250px;
+            word-wrap: break-word;
+        "></div>
+        
+        <div style="border-top: 1px solid #30363d; padding-top: 10px; margin-top: 10px;">
+            <div>Zoom: <span id="zoomLevel">100%</span></div>
+            <div style="margin-top: 4px; font-size: 11px; color: #6e7681;">
+                Maus-Rad zum Zoomen • Ziehen zum Bewegen
+            </div>
+        </div>
+    </div>
+    
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        
+        socket.on('connect', () => {
+            console.log('[DATABASE] Verbunden:', socket.id);
+        });
+        
+        // UI Elemente
+        const searchInput = document.getElementById('searchInput');
+        const searchResults = document.getElementById('searchResults');
+        const statusMessage = document.getElementById('statusMessage');
+        const toggleAll = document.getElementById('toggleAll');
+        const toggleSlider = document.getElementById('toggleSlider');
+        const toggleButton = document.getElementById('toggleButton');
+        const fetchTelefonBtn = document.getElementById('fetchTelefonBtn');
+        const loadOrgBtn = document.getElementById('loadOrgBtn');
+        const checkFormulareBtn = document.getElementById('checkFormulareBtn');
+        
+        // Aktuelle Daten
+        let currentManager = null;
+        let currentSubordinates = [];
+        let showAllMode = false;
+        let lastSearchTerm = '';
+        
+        // Debounce Timer
+        let searchTimeout = null;
+        
+        // Socket.io Events für Organigramm laden
+        socket.on('organigramm-status', (data) => {
+            console.log('[ORGANIGRAMM] Status:', data.message);
+            statusMessage.style.display = 'block';
+            statusMessage.textContent = data.message;
+            statusMessage.style.backgroundColor = 'rgba(88, 166, 255, 0.1)';
+            statusMessage.style.borderColor = '#58a6ff';
+            statusMessage.style.color = '#58a6ff';
+        });
+        
+        socket.on('organigramm-complete', (data) => {
+            console.log('[ORGANIGRAMM] Abgeschlossen:', data);
+            statusMessage.style.backgroundColor = 'rgba(63, 185, 80, 0.1)';
+            statusMessage.style.borderColor = '#3fb950';
+            statusMessage.style.color = '#3fb950';
+            statusMessage.textContent = `Erfolgreich! ${data.count} Mitarbeiter in DB gespeichert`;
+            loadOrgBtn.disabled = false;
+            loadOrgBtn.textContent = '1. Organigramm laden';
+        });
+        
+        socket.on('organigramm-error', (data) => {
+            console.error('[ORGANIGRAMM] Fehler:', data);
+            statusMessage.style.backgroundColor = 'rgba(255, 59, 59, 0.1)';
+            statusMessage.style.borderColor = '#ff3b3b';
+            statusMessage.style.color = '#ff3b3b';
+            statusMessage.textContent = 'Fehler: ' + data.error;
+            loadOrgBtn.disabled = false;
+            loadOrgBtn.textContent = '1. Organigramm laden';
+        });
+        
+        // Organigramm laden Button
+        loadOrgBtn.addEventListener('click', async () => {
+            loadOrgBtn.disabled = true;
+            loadOrgBtn.textContent = 'Wird geladen...';
+            statusMessage.style.display = 'block';
+            
+            try {
+                const response = await fetch('/api/organigramm', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ socketId: socket.id })
+                });
+                
+                const data = await response.json();
+                
+                if (!data.success) {
+                    statusMessage.textContent = 'Fehler: ' + data.error;
+                    statusMessage.style.backgroundColor = 'rgba(255, 59, 59, 0.1)';
+                    statusMessage.style.borderColor = '#ff3b3b';
+                    statusMessage.style.color = '#ff3b3b';
+                    loadOrgBtn.disabled = false;
+                    loadOrgBtn.textContent = '1. Organigramm laden';
+                }
+                
+            } catch (error) {
+                console.error('[ORGANIGRAMM] Fehler:', error);
+                statusMessage.style.display = 'block';
+                statusMessage.textContent = 'Netzwerkfehler';
+                statusMessage.style.backgroundColor = 'rgba(255, 59, 59, 0.1)';
+                statusMessage.style.borderColor = '#ff3b3b';
+                statusMessage.style.color = '#ff3b3b';
+                loadOrgBtn.disabled = false;
+                loadOrgBtn.textContent = '1. Organigramm laden';
+            }
+        });
+        
+        // Socket.io Events für Telefonnummern
+        socket.on('telefon-status', (data) => {
+            console.log('[TELEFON] Status:', data.message);
+            statusMessage.style.display = 'block';
+            statusMessage.textContent = data.message;
+            statusMessage.style.backgroundColor = 'rgba(88, 166, 255, 0.1)';
+            statusMessage.style.borderColor = '#58a6ff';
+            statusMessage.style.color = '#58a6ff';
+        });
+        
+        socket.on('telefon-progress', (data) => {
+            statusMessage.textContent = data.message;
+        });
+        
+        socket.on('telefon-complete', (data) => {
+            statusMessage.style.backgroundColor = 'rgba(63, 185, 80, 0.1)';
+            statusMessage.style.borderColor = '#3fb950';
+            statusMessage.style.color = '#3fb950';
+            statusMessage.textContent = `Erfolgreich! ${data.total} Telefonnummern geladen`;
+            fetchTelefonBtn.disabled = false;
+            fetchTelefonBtn.textContent = '2. Telefonnummern laden';
+            
+            console.log('[TELEFON] Ergebnisse:', data.results);
+            
+            // Daten neu laden um Telefonnummern anzuzeigen (mit user_id statt Name!)
+            if (currentManager && currentManager.user_id) {
+                console.log('[TELEFON] Lade Daten neu um Telefonnummern anzuzeigen...');
+                socket.emit('reload-by-userid', { userId: currentManager.user_id, showAll: showAllMode });
+            }
+        });
+        
+        socket.on('telefon-error', (data) => {
+            statusMessage.style.backgroundColor = 'rgba(255, 59, 59, 0.1)';
+            statusMessage.style.borderColor = '#ff3b3b';
+            statusMessage.style.color = '#ff3b3b';
+            statusMessage.textContent = 'Fehler: ' + data.error;
+            fetchTelefonBtn.disabled = false;
+            fetchTelefonBtn.textContent = '2. Telefonnummern laden';
+        });
+        
+        // Socket.io Events für E-Formulare
+        socket.on('formulare-status', (data) => {
+            console.log('[FORMULARE] Status:', data.message);
+            statusMessage.style.display = 'block';
+            statusMessage.textContent = data.message;
+            statusMessage.style.backgroundColor = 'rgba(255, 149, 0, 0.1)';
+            statusMessage.style.borderColor = '#ff9500';
+            statusMessage.style.color = '#ff9500';
+        });
+        
+        socket.on('formulare-progress', (data) => {
+            statusMessage.textContent = data.message;
+        });
+        
+        socket.on('formulare-complete', (data) => {
+            statusMessage.style.backgroundColor = 'rgba(63, 185, 80, 0.1)';
+            statusMessage.style.borderColor = '#3fb950';
+            statusMessage.style.color = '#3fb950';
+            statusMessage.textContent = `Erfolgreich! ${data.totalErledigte} E-Formulare gefunden`;
+            checkFormulareBtn.disabled = false;
+            checkFormulareBtn.textContent = '3. E-Formulare pruefen';
+            
+            console.log('[FORMULARE] Ergebnisse:', data.results);
+            
+            // Daten neu laden um E-Formulare anzuzeigen
+            if (currentManager && currentManager.user_id) {
+                console.log('[FORMULARE] Lade Daten neu...');
+                socket.emit('reload-by-userid', { userId: currentManager.user_id, showAll: showAllMode });
+            }
+        });
+        
+        socket.on('formulare-error', (data) => {
+            statusMessage.style.backgroundColor = 'rgba(255, 59, 59, 0.1)';
+            statusMessage.style.borderColor = '#ff3b3b';
+            statusMessage.style.color = '#ff3b3b';
+            statusMessage.textContent = 'Fehler: ' + data.error;
+            checkFormulareBtn.disabled = false;
+            checkFormulareBtn.textContent = '3. E-Formulare pruefen';
+        });
+        
+        // Button Click Handler
+        fetchTelefonBtn.addEventListener('click', async () => {
+            if (!currentManager) {
+                return;
+            }
+            
+            fetchTelefonBtn.disabled = true;
+            fetchTelefonBtn.textContent = 'Wird geladen...';
+            statusMessage.style.display = 'block';
+            
+            // Wichtig: Hole ALLE oder nur direkte Mitarbeiter (je nach Switch)
+            console.log('[TELEFON] Hole Mitarbeiter-Liste für user_id:', currentManager.user_id, '| Modus:', showAllMode ? 'Alle' : 'Direkte');
+            
+            try {
+                // Erst Mitarbeiter-Liste aus Supabase holen
+                const searchResponse = await fetch('/api/get-subordinates', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        userId: currentManager.user_id,
+                        includeManager: true,
+                        getAll: showAllMode  // Wichtig: Hole alle wenn Switch ON
+                    })
+                });
+                
+                const searchData = await searchResponse.json();
+                
+                if (!searchData.success) {
+                    statusMessage.textContent = 'Fehler beim Laden der Mitarbeiter-Liste';
+                    fetchTelefonBtn.disabled = false;
+                    fetchTelefonBtn.textContent = '2. Telefonnummern laden';
+                    return;
+                }
+                
+                const userIds = searchData.userIds || [];
+                console.log('[TELEFON] Lade Telefonnummern für', userIds.length, 'Mitarbeiter');
+                
+                // Jetzt Telefonnummern laden
+                const response = await fetch('/api/telefon/fetch-numbers', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        userIds: userIds,
+                        socketId: socket.id 
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (!data.success) {
+                    statusMessage.textContent = 'Fehler: ' + data.error;
+                    fetchTelefonBtn.disabled = false;
+                    fetchTelefonBtn.textContent = '2. Telefonnummern laden';
+                }
+                
+            } catch (error) {
+                console.error('[TELEFON] Fehler:', error);
+                statusMessage.textContent = 'Netzwerkfehler';
+                fetchTelefonBtn.disabled = false;
+                fetchTelefonBtn.textContent = '2. Telefonnummern laden';
+            }
+        });
+        
+        // E-Formulare Button Click Handler
+        checkFormulareBtn.addEventListener('click', async () => {
+            if (!currentManager) {
+                return;
+            }
+            
+            checkFormulareBtn.disabled = true;
+            checkFormulareBtn.textContent = 'Wird geprueft...';
+            statusMessage.style.display = 'block';
+            
+            console.log('[FORMULARE] Hole Mitarbeiter-Liste für user_id:', currentManager.user_id);
+            
+            try {
+                // Hole Mitarbeiter-Liste (je nach Switch-Status)
+                const searchResponse = await fetch('/api/get-subordinates', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        userId: currentManager.user_id,
+                        includeManager: true,
+                        getAll: showAllMode
+                    })
+                });
+                
+                const searchData = await searchResponse.json();
+                
+                if (!searchData.success) {
+                    statusMessage.textContent = 'Fehler beim Laden der Mitarbeiter-Liste';
+                    checkFormulareBtn.disabled = false;
+                    checkFormulareBtn.textContent = '3. E-Formulare pruefen';
+                    return;
+                }
+                
+                const userIds = searchData.userIds || [];
+                console.log('[FORMULARE] Pruefe E-Formulare für', userIds.length, 'Mitarbeiter');
+                
+                // Prüfe E-Formulare
+                const response = await fetch('/api/formulare/check-formulare', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        userIds: userIds,
+                        socketId: socket.id 
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (!data.success) {
+                    statusMessage.textContent = 'Fehler: ' + data.error;
+                    checkFormulareBtn.disabled = false;
+                    checkFormulareBtn.textContent = '3. E-Formulare pruefen';
+                }
+                
+            } catch (error) {
+                console.error('[FORMULARE] Fehler:', error);
+                statusMessage.textContent = 'Netzwerkfehler';
+                checkFormulareBtn.disabled = false;
+                checkFormulareBtn.textContent = '3. E-Formulare pruefen';
+            }
+        });
+        
+        // Toggle Switch Handler
+        toggleAll.addEventListener('change', () => {
+            showAllMode = toggleAll.checked;
+            
+            // Update Switch-Styling
+            if (showAllMode) {
+                toggleSlider.style.backgroundColor = '#58a6ff';
+                toggleButton.style.transform = 'translateX(20px)';
+            } else {
+                toggleSlider.style.backgroundColor = '#30363d';
+                toggleButton.style.transform = 'translateX(0)';
+            }
+            
+            // Wenn bereits gesucht wurde, erneut suchen mit neuem Modus
+            if (lastSearchTerm) {
+                console.log('[DATABASE] Wechsle zu:', showAllMode ? 'Alle' : 'Nur Direkte');
+                socket.emit('search-mitarbeiter', { name: lastSearchTerm, showAll: showAllMode });
+            }
+        });
+        
+        // Socket.io Event für Suchergebnisse
+        socket.on('search-result', (data) => {
+            console.log('[DATABASE] Suchergebnis:', data);
+            
+            if (data.found) {
+                currentManager = data.manager;
+                currentSubordinates = data.subordinates || [];
+                
+                const countText = data.showAll 
+                    ? `${data.subordinates.length} gesamt` 
+                    : `${data.subordinates.length} direkte`;
+                
+                searchResults.textContent = `${data.manager.full_name} (${countText})`;
+                searchResults.style.color = '#3fb950';
+                
+                // Zeige Telefonnummern und E-Formulare Buttons
+                fetchTelefonBtn.style.display = 'block';
+                checkFormulareBtn.style.display = 'block';
+                
+                // Zeichne auf Canvas
+                if (data.showAll) {
+                    drawCompactTree(data.manager, data.subordinates);
+                } else {
+                    drawOrgChart(data.manager, data.subordinates);
+                }
+            } else {
+                searchResults.textContent = 'Kein Mitarbeiter gefunden';
+                searchResults.style.color = '#ff3b3b';
+                currentManager = null;
+                currentSubordinates = [];
+                fetchTelefonBtn.style.display = 'none';
+                checkFormulareBtn.style.display = 'none';
+                draw(); // Leeres Grid
+            }
+        });
+        
+        // Suchfeld Event Listener
+        searchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.trim();
+            lastSearchTerm = searchTerm;
+            
+            // Clear vorheriger Timer
+            if (searchTimeout) {
+                clearTimeout(searchTimeout);
+            }
+            
+            if (searchTerm === '') {
+                searchResults.textContent = 'Gib einen Namen ein...';
+                searchResults.style.color = '#8b949e';
+                currentManager = null;
+                currentSubordinates = [];
+                lastSearchTerm = '';
+                draw(); // Leeres Grid
+                return;
+            }
+            
+            searchResults.textContent = 'Suche...';
+            searchResults.style.color = '#58a6ff';
+            
+            // Debounce: Warte 500ms nach letztem Tastendruck
+            searchTimeout = setTimeout(() => {
+                console.log('[DATABASE] Suche nach:', searchTerm, '| Modus:', showAllMode ? 'Alle' : 'Direkte');
+                socket.emit('search-mitarbeiter', { name: searchTerm, showAll: showAllMode });
+            }, 500);
+        });
+        
+        // Canvas Setup
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const zoomLevelSpan = document.getElementById('zoomLevel');
+        
+        let scale = 1;
+        let offsetX = 0;
+        let offsetY = 0;
+        let isDragging = false;
+        let startX = 0;
+        let startY = 0;
+        
+        // Canvas Größe anpassen
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight - 80;
+            draw();
+        }
+        
+        // Mitarbeiter-Box zeichnen (Clean Design)
+        function drawBox(x, y, width, height, person, isManager = false) {
+            const padding = 12 / scale;
+            const lineHeight = 16 / scale;
+            
+            // Box Hintergrund (Transparent/Clean)
+            ctx.fillStyle = isManager ? 'rgba(88, 166, 255, 0.1)' : 'rgba(22, 27, 34, 0.8)';
+            ctx.fillRect(x, y, width, height);
+            
+            // Box Rahmen
+            ctx.strokeStyle = isManager ? '#58a6ff' : '#30363d';
+            ctx.lineWidth = 2 / scale;
+            ctx.strokeRect(x, y, width, height);
+            
+            // Name oben (größer, zentriert, schwarz/weiß)
+            const name = person.full_name || person.name || 'Unbekannt';
+            ctx.fillStyle = isManager ? '#ffffff' : '#0d1117';
+            ctx.fillRect(x, y, width, 35 / scale);
+            
+            ctx.fillStyle = isManager ? '#0d1117' : '#ffffff';
+            ctx.font = `bold ${13 / scale}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(name, x + width / 2, y + 18 / scale);
+            
+            // Daten darunter (Label: Wert Format, linksbündig)
+            ctx.textAlign = 'left';
+            let currentY = y + 40 / scale + padding;
+            
+            const data = [
+                { label: 'VC24', value: person.vc24_number || '-', color: null },
+                { label: 'GPNR', value: person.gpnr || '-', color: null },
+                { label: 'Tel', value: person.telefon || '-', color: '#3fb950' },
+                { label: 'E-Form', value: person.erledigte_formulare !== undefined ? person.erledigte_formulare.toString() : '-', color: '#ff9500' },
+                { label: 'Leads', value: person.leads_count !== undefined ? person.leads_count.toString() : '-', color: '#a371f7' }
+            ];
+            
+            // Für Manager: Zeige auch Gesamt-Summe
+            if (isManager && person.erledigte_formulare_gesamt !== undefined) {
+                data.push({ label: 'Gesamt', value: person.erledigte_formulare_gesamt.toString(), color: '#58a6ff' });
+            }
+            
+            data.forEach(item => {
+                // Label (grau, klein)
+                ctx.fillStyle = '#8b949e';
+                ctx.font = `${10 / scale}px Arial`;
+                ctx.fillText(item.label + ':', x + padding, currentY);
+                
+                // Wert (farbig, rechtsbündig)
+                ctx.fillStyle = item.color || '#c9d1d9';
+                ctx.font = `${11 / scale}px Arial`;
+                ctx.textAlign = 'right';
+                ctx.fillText(item.value, x + width - padding, currentY);
+                
+                ctx.textAlign = 'left';
+                currentY += lineHeight;
+            });
+        }
+        
+        // Generiere Farbe basierend auf Index
+        function getColorForIndex(index, total) {
+            const hue = (index * 360) / total;
+            return `hsl(${hue}, 70%, 60%)`;
+        }
+        
+        // Eckige Verbindungslinie zeichnen (sauber, stoppt vor Box)
+        function drawConnection(fromX, fromY, toX, toY, color = '#58a6ff') {
+            const padding = 5; // Abstand zur Box
+            
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2 / scale;
+            ctx.beginPath();
+            
+            // Start (unten vom Manager-Box)
+            ctx.moveTo(fromX, fromY);
+            
+            // Vertikal runter (Hälfte des Wegs)
+            const midY = (fromY + toY) / 2;
+            ctx.lineTo(fromX, midY);
+            
+            // Horizontal zur Ziel-X-Position
+            ctx.lineTo(toX, midY);
+            
+            // Vertikal hoch, aber STOPP vor der Box
+            ctx.lineTo(toX, toY - padding);
+            
+            ctx.stroke();
+        }
+        
+        // Organigramm zeichnen (nur direkte Mitarbeiter)
+        function drawOrgChart(manager, subordinates) {
+            draw(); // Erst Grid zeichnen
+            
+            ctx.save();
+            ctx.translate(offsetX, offsetY);
+            ctx.scale(scale, scale);
+            
+            const boxWidth = 240;
+            const boxHeight = 170;
+            const verticalSpacing = 200;
+            const horizontalSpacing = 40;
+            
+            // Manager oben zentral zeichnen
+            const managerX = -boxWidth / 2;
+            const managerY = -300;
+            drawBox(managerX, managerY, boxWidth, boxHeight, manager, true);
+            
+            // Direkte Mitarbeiter darunter
+            if (subordinates && subordinates.length > 0) {
+                const totalWidth = (subordinates.length * boxWidth) + ((subordinates.length - 1) * horizontalSpacing);
+                let startX = -totalWidth / 2;
+                const subY = managerY + boxHeight + verticalSpacing;
+                
+                subordinates.forEach((sub, index) => {
+                    const subX = startX + (index * (boxWidth + horizontalSpacing));
+                    
+                    // Generiere einzigartige Farbe für jeden direkten Mitarbeiter
+                    const color = getColorForIndex(index, subordinates.length);
+                    
+                    // Zeichne Box mit Farb-Akzent
+                    drawBox(subX, subY, boxWidth, boxHeight, sub, false);
+                    
+                    // Zeichne farbige eckige Verbindung (stoppt vor Box)
+                    const fromX = managerX + boxWidth / 2;
+                    const fromY = managerY + boxHeight;
+                    const toX = subX + boxWidth / 2;
+                    const toY = subY;
+                    
+                    drawConnection(fromX, fromY, toX, toY, color);
+                });
+            }
+            
+            ctx.restore();
+            
+            // Zoom-Level anzeigen
+            zoomLevelSpan.textContent = Math.round(scale * 100) + '%';
+        }
+        
+        // Kompakter Baum für ALLE Mitarbeiter (nach Parent gruppiert mit eigenen Farben)
+        function drawCompactTree(manager, allSubordinates) {
+            draw(); // Erst Grid zeichnen
+            
+            ctx.save();
+            ctx.translate(offsetX, offsetY);
+            ctx.scale(scale, scale);
+            
+            const boxWidth = 240;
+            const boxHeight = 170;
+            const verticalSpacing = 140;
+            const horizontalSpacing = 30;
+            const maxPerRow = 6; // Max 6 Boxen pro Zeile (wegen größerer Boxen)
+            
+            // Manager oben zentral
+            const managerX = -boxWidth / 2;
+            const managerY = -200;
+            drawBox(managerX, managerY, boxWidth, boxHeight, manager, true);
+            
+            if (allSubordinates && allSubordinates.length > 0) {
+                // Gruppiere nach parent_user_id (direkte Strukturen)
+                const directChildren = allSubordinates.filter(s => s.parent_user_id === manager.user_id);
+                
+                // Erstelle Farb-Mapping für jeden direkten Mitarbeiter
+                const colorMap = {};
+                directChildren.forEach((child, idx) => {
+                    colorMap[child.user_id] = getColorForIndex(idx, directChildren.length);
+                });
+                
+                // Funktion um die Farbe für jeden Mitarbeiter zu finden
+                function getEmployeeColor(emp) {
+                    if (emp.parent_user_id === manager.user_id) {
+                        return colorMap[emp.user_id] || '#58a6ff';
+                    }
+                    // Finde den obersten Parent (direktes Kind des Managers)
+                    let current = emp;
+                    let visited = new Set();
+                    while (current && current.parent_user_id !== manager.user_id && !visited.has(current.user_id)) {
+                        visited.add(current.user_id);
+                        current = allSubordinates.find(s => s.user_id === current.parent_user_id);
+                        if (!current) break;
+                    }
+                    return current ? (colorMap[current.user_id] || '#58a6ff') : '#58a6ff';
+                }
+                
+                // Gruppiere nach Ebene
+                const byLevel = {};
+                allSubordinates.forEach(sub => {
+                    const lvl = sub.level || 0;
+                    if (!byLevel[lvl]) byLevel[lvl] = [];
+                    byLevel[lvl].push(sub);
+                });
+                
+                const levels = Object.keys(byLevel).sort((a, b) => parseInt(a) - parseInt(b));
+                let currentY = managerY + boxHeight + verticalSpacing;
+                
+                levels.forEach(level => {
+                    const levelEmployees = byLevel[level];
+                    const rows = Math.ceil(levelEmployees.length / maxPerRow);
+                    
+                    for (let row = 0; row < rows; row++) {
+                        const startIdx = row * maxPerRow;
+                        const endIdx = Math.min(startIdx + maxPerRow, levelEmployees.length);
+                        const rowEmployees = levelEmployees.slice(startIdx, endIdx);
+                        
+                        const rowWidth = (rowEmployees.length * boxWidth) + ((rowEmployees.length - 1) * horizontalSpacing);
+                        let startX = -rowWidth / 2;
+                        
+                        rowEmployees.forEach((emp, idx) => {
+                            const empX = startX + (idx * (boxWidth + horizontalSpacing));
+                            const empColor = getEmployeeColor(emp);
+                            
+                            // Zeichne Box
+                            drawBox(empX, currentY, boxWidth, boxHeight, emp, false);
+                            
+                            // Zeichne Verbindung zum Manager (nur für direkte Kinder)
+                            if (emp.parent_user_id === manager.user_id) {
+                                const fromX = managerX + boxWidth / 2;
+                                const fromY = managerY + boxHeight;
+                                const toX = empX + boxWidth / 2;
+                                const toY = currentY;
+                                drawConnection(fromX, fromY, toX, toY, empColor);
+                            }
+                            
+                            // Für andere Ebenen: Zeichne kurze vertikale Linie oben an der Box
+                            if (parseInt(level) > manager.level + 1) {
+                                ctx.strokeStyle = empColor;
+                                ctx.lineWidth = 2 / scale;
+                                ctx.beginPath();
+                                ctx.moveTo(empX + boxWidth / 2, currentY - 15);
+                                ctx.lineTo(empX + boxWidth / 2, currentY - 5);
+                                ctx.stroke();
+                            }
+                        });
+                        
+                        currentY += boxHeight + verticalSpacing;
+                    }
+                });
+            }
+            
+            ctx.restore();
+            
+            // Zoom-Level anzeigen
+            zoomLevelSpan.textContent = Math.round(scale * 100) + '%';
+        }
+        
+        // Grid zeichnen
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Hintergrund
+            ctx.fillStyle = '#0d1117';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.save();
+            ctx.translate(offsetX, offsetY);
+            ctx.scale(scale, scale);
+            
+            const gridSize = 50;
+            const startX = Math.floor(-offsetX / scale / gridSize) * gridSize;
+            const startY = Math.floor(-offsetY / scale / gridSize) * gridSize;
+            const endX = Math.ceil((canvas.width - offsetX) / scale / gridSize) * gridSize;
+            const endY = Math.ceil((canvas.height - offsetY) / scale / gridSize) * gridSize;
+            
+            // Große Grid-Linien (alle 200px)
+            ctx.strokeStyle = '#21262d';
+            ctx.lineWidth = 2 / scale;
+            ctx.beginPath();
+            for (let x = Math.floor(startX / 200) * 200; x <= endX; x += 200) {
+                ctx.moveTo(x, startY);
+                ctx.lineTo(x, endY);
+            }
+            for (let y = Math.floor(startY / 200) * 200; y <= endY; y += 200) {
+                ctx.moveTo(startX, y);
+                ctx.lineTo(endX, y);
+            }
+            ctx.stroke();
+            
+            // Kleine Grid-Linien
+            ctx.strokeStyle = '#161b22';
+            ctx.lineWidth = 1 / scale;
+            ctx.beginPath();
+            for (let x = startX; x <= endX; x += gridSize) {
+                if (x % 200 !== 0) {
+                    ctx.moveTo(x, startY);
+                    ctx.lineTo(x, endY);
+                }
+            }
+            for (let y = startY; y <= endY; y += gridSize) {
+                if (y % 200 !== 0) {
+                    ctx.moveTo(startX, y);
+                    ctx.lineTo(endX, y);
+                }
+            }
+            ctx.stroke();
+            
+            ctx.restore();
+            
+            // Zoom-Level anzeigen
+            zoomLevelSpan.textContent = Math.round(scale * 100) + '%';
+        }
+        
+        // Maus-Events
+        canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            startX = e.clientX - offsetX;
+            startY = e.clientY - offsetY;
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                offsetX = e.clientX - startX;
+                offsetY = e.clientY - startY;
+                
+                // Wenn Organigramm angezeigt wird, neu zeichnen
+                if (currentManager) {
+                    if (showAllMode) {
+                        drawCompactTree(currentManager, currentSubordinates);
+                    } else {
+                        drawOrgChart(currentManager, currentSubordinates);
+                    }
+                } else {
+                    draw();
+                }
+            }
+        });
+        
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+        
+        canvas.addEventListener('mouseleave', () => {
+            isDragging = false;
+        });
+        
+        // Zoom mit Mausrad
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            
+            const mouseX = e.clientX - canvas.offsetLeft;
+            const mouseY = e.clientY - canvas.offsetTop;
+            
+            const worldX = (mouseX - offsetX) / scale;
+            const worldY = (mouseY - offsetY) / scale;
+            
+            const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+            const newScale = Math.min(Math.max(0.1, scale * zoomFactor), 5);
+            
+            offsetX = mouseX - worldX * newScale;
+            offsetY = mouseY - worldY * newScale;
+            
+            scale = newScale;
+            
+            // Wenn Organigramm angezeigt wird, neu zeichnen
+            if (currentManager) {
+                if (showAllMode) {
+                    drawCompactTree(currentManager, currentSubordinates);
+                } else {
+                    drawOrgChart(currentManager, currentSubordinates);
+                }
+            } else {
+                draw();
+            }
+        });
+        
+        // Window Resize
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Initial
+        resizeCanvas();
+    </script>
+</body>
+</html>
+

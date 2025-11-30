@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %> - NEUROVIA</title>
+    <link href="/styles.css" rel="stylesheet">
+    <style>
+        #map {
+            width: 100%;
+            height: calc(100vh - 80px);
+            margin-top: 80px;
+        }
+        
+        .map-controls {
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            z-index: 999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .control-button {
+            background-color: #0d1117;
+            border: 3px solid #30363d;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        .control-button:hover {
+            border-color: #58a6ff;
+            background-color: #161b22;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.4);
+        }
+        
+        .control-button.active {
+            background-color: #58a6ff;
+            border-color: #58a6ff;
+            color: white;
+        }
+        
+        .info-panel {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background-color: #0d1117;
+            border: 3px solid #30363d;
+            border-radius: 8px;
+            padding: 15px 20px;
+            color: white;
+            z-index: 999;
+            min-width: 250px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        .info-panel h3 {
+            font-size: 14px;
+            color: #8b949e;
+            margin-bottom: 10px;
+        }
+        
+        .info-stat {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+        
+        .info-stat-label {
+            color: #c9d1d9;
+        }
+        
+        .info-stat-value {
+            color: #58a6ff;
+            font-weight: 600;
+        }
+        
+        .info-stat-value.red {
+            color: #ff3b3b;
+        }
+        
+        /* Custom Map Marker Styles */
+        .custom-marker {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 3px solid #58a6ff;
+            background-color: rgba(88, 166, 255, 0.2);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .custom-marker:hover {
+            transform: scale(1.2);
+            background-color: rgba(88, 166, 255, 0.4);
+        }
+        
+        .custom-marker.highlighted {
+            border-color: #ff6b6b;
+            background-color: rgba(255, 107, 107, 0.4);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.1);
+                opacity: 0.8;
+            }
+        }
+    </style>
+</head>
+<body style="background-color: #0d1117;">
+    <%- include('partials/navbar', { currentPage: 'glm' }) %>
+    
+    <!-- Map Container -->
+    <div id="map"></div>
+    
+    <!-- Map Controls -->
+    <div class="map-controls">
+        <button class="control-button" id="highlightBtn">
+            <span>📍 Gebäude markieren</span>
+        </button>
+        <button class="control-button" id="clearBtn">
+            <span>🗑️ Markierungen löschen</span>
+        </button>
+        <button class="control-button" id="centerBtn">
+            <span>🎯 Wien zentrieren</span>
+        </button>
+    </div>
+    
+    <!-- Info Panel -->
+    <div class="info-panel">
+        <h3>GEO LEAD STATISTIK</h3>
+        <div class="info-stat">
+            <span class="info-stat-label">🔴 Markierte Gebäude:</span>
+            <span class="info-stat-value red" id="markedCount">0</span>
+        </div>
+        <div class="info-stat">
+            <span class="info-stat-label">Aktive Leads:</span>
+            <span class="info-stat-value" id="activeLeads">0</span>
+        </div>
+        <div class="info-stat">
+            <span class="info-stat-label">Gebiet:</span>
+            <span class="info-stat-value">Wien</span>
+        </div>
+    </div>
+    
+    <!-- Socket.io für Echtzeitdaten -->
+    <script src="/socket.io/socket.io.js"></script>
+    
+    <!-- Google Maps API -->
+    <script>
+        // Google Maps Initialisierung
+        let map;
+        let markers = [];
+        let highlightMode = false;
+        const viennaCenter = { lat: 48.2082, lng: 16.3738 };
+        
+        function initMap() {
+            // Karte initialisieren mit Wien als Zentrum
+            map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 15,
+                center: viennaCenter,
+                mapTypeId: 'roadmap',
+                styles: [
+                    // Basis Geometrie - Dunkler Hintergrund
+                    {
+                        elementType: "geometry",
+                        stylers: [{ color: "#0d1117" }]
+                    },
+                    // Text Stroke - Dunkel
+                    {
+                        elementType: "labels.text.stroke",
+                        stylers: [{ color: "#0d1117" }]
+                    },
+                    // Text Fill - Hellgrau
+                    {
+                        elementType: "labels.text.fill",
+                        stylers: [{ color: "#8b949e" }]
+                    },
+                    // Stadt-Labels
+                    {
+                        featureType: "administrative.locality",
+                        elementType: "labels.text.fill",
+                        stylers: [{ color: "#c9d1d9" }]
+                    },
+                    // ALLE POIs (Geschäfte, Läden, etc.) KOMPLETT AUSBLENDEN
+                    {
+                        featureType: "poi",
+                        stylers: [{ visibility: "off" }]
+                    },
+                    // Business POIs ausblenden
+                    {
+                        featureType: "poi.business",
+                        stylers: [{ visibility: "off" }]
+                    },
+                    // Government POIs ausblenden
+                    {
+                        featureType: "poi.government",
+                        stylers: [{ visibility: "off" }]
+                    },
+                    // Medical POIs ausblenden
+                    {
+                        featureType: "poi.medical",
+                        stylers: [{ visibility: "off" }]
+                    },
+                    // Park POIs ausblenden
+                    {
+                        featureType: "poi.park",
+                        stylers: [{ visibility: "off" }]
+                    },
+                    // Place of worship ausblenden
+                    {
+                        featureType: "poi.place_of_worship",
+                        stylers: [{ visibility: "off" }]
+                    },
+                    // School POIs ausblenden
+                    {
+                        featureType: "poi.school",
+                        stylers: [{ visibility: "off" }]
+                    },
+                    // Sports complex ausblenden
+                    {
+                        featureType: "poi.sports_complex",
+                        stylers: [{ visibility: "off" }]
+                    },
+                    // Transit (U-Bahn, Bus, etc.) komplett ausblenden
+                    {
+                        featureType: "transit",
+                        stylers: [{ visibility: "off" }]
+                    },
+                    // Straßen - Dunkelgrau
+                    {
+                        featureType: "road",
+                        elementType: "geometry",
+                        stylers: [{ color: "#21262d" }]
+                    },
+                    {
+                        featureType: "road",
+                        elementType: "geometry.stroke",
+                        stylers: [{ color: "#161b22" }]
+                    },
+                    // Autobahnen - Blau (NEUROVIA Farbe)
+                    {
+                        featureType: "road.highway",
+                        elementType: "geometry",
+                        stylers: [{ color: "#1f6feb" }]
+                    },
+                    {
+                        featureType: "road.highway",
+                        elementType: "geometry.stroke",
+                        stylers: [{ color: "#0d419d" }]
+                    },
+                    // Straßen-Labels
+                    {
+                        featureType: "road",
+                        elementType: "labels.text.fill",
+                        stylers: [{ color: "#6e7681" }]
+                    },
+                    // Wasser - Dunkelblau
+                    {
+                        featureType: "water",
+                        elementType: "geometry",
+                        stylers: [{ color: "#0d1b2a" }]
+                    },
+                    {
+                        featureType: "water",
+                        elementType: "labels.text.fill",
+                        stylers: [{ color: "#58a6ff" }]
+                    },
+                    // GEBÄUDE IN ROT - Das ist was du willst!
+                    {
+                        featureType: "landscape.man_made",
+                        elementType: "geometry.fill",
+                        stylers: [{ color: "#ff0000" }]
+                    },
+                    {
+                        featureType: "landscape.man_made",
+                        elementType: "geometry.stroke",
+                        stylers: [{ color: "#cc0000" }]
+                    }
+                ]
+            });
+            
+            // Click Event für Gebäude-Markierung
+            map.addListener('click', (e) => {
+                if (highlightMode) {
+                    addMarker(e.latLng);
+                }
+            });
+            
+            console.log('[GLM] Google Maps initialisiert - Wien Zentrum');
+        }
+        
+        // Marker hinzufügen - ROTE GEBÄUDE-MARKIERUNG
+        function addMarker(location) {
+            const marker = new google.maps.Marker({
+                position: location,
+                map: map,
+                animation: google.maps.Animation.DROP,
+                icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: 12,
+                    fillColor: '#ff0000',
+                    fillOpacity: 0.8,
+                    strokeColor: '#cc0000',
+                    strokeWeight: 4
+                }
+            });
+            
+            // Info Window für Marker
+            const infoWindow = new google.maps.InfoWindow({
+                content: `
+                    <div style="padding: 12px; font-family: sans-serif;">
+                        <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                            <span style="font-size: 20px; margin-right: 8px;">🏢</span>
+                            <strong style="color: #ff0000; font-size: 16px;">Markiertes Gebäude</strong>
+                        </div>
+                        <div style="font-size: 13px; color: #666; line-height: 1.6;">
+                            <div><strong>Position:</strong></div>
+                            <div>Lat: ${location.lat().toFixed(6)}</div>
+                            <div>Lng: ${location.lng().toFixed(6)}</div>
+                            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #ddd; color: #999; font-size: 11px;">
+                                Klicken Sie auf "Markierungen löschen" zum Entfernen
+                            </div>
+                        </div>
+                    </div>
+                `
+            });
+            
+            marker.addListener('click', () => {
+                infoWindow.open(map, marker);
+            });
+            
+            markers.push(marker);
+            updateStats();
+            
+            console.log('[GLM] Marker hinzugefügt:', location.toString());
+        }
+        
+        // Alle Marker löschen
+        function clearMarkers() {
+            markers.forEach(marker => marker.setMap(null));
+            markers = [];
+            updateStats();
+            console.log('[GLM] Alle Marker gelöscht');
+        }
+        
+        // Wien zentrieren
+        function centerVienna() {
+            map.setCenter(viennaCenter);
+            map.setZoom(13);
+            console.log('[GLM] Wien zentriert');
+        }
+        
+        // Statistiken aktualisieren
+        function updateStats() {
+            document.getElementById('markedCount').textContent = markers.length;
+            document.getElementById('activeLeads').textContent = markers.length * 3; // Beispiel: 3 Leads pro Gebäude
+        }
+        
+        // Control Button Event Listeners
+        document.getElementById('highlightBtn').addEventListener('click', function() {
+            highlightMode = !highlightMode;
+            this.classList.toggle('active');
+            if (highlightMode) {
+                this.innerHTML = '<span>✅ Markieren aktiv</span>';
+                console.log('[GLM] Markierungsmodus aktiviert');
+            } else {
+                this.innerHTML = '<span>📍 Gebäude markieren</span>';
+                console.log('[GLM] Markierungsmodus deaktiviert');
+            }
+        });
+        
+        document.getElementById('clearBtn').addEventListener('click', clearMarkers);
+        document.getElementById('centerBtn').addEventListener('click', centerVienna);
+        
+        // Socket.io für Echtzeitdaten
+        const socket = io();
+        
+        socket.on('connect', () => {
+            console.log('[SOCKET] Verbunden:', socket.id);
+        });
+        
+        socket.on('geo-data-update', (data) => {
+            console.log('[GLM] Geo-Daten Update erhalten:', data);
+            // Hier können Sie neue Marker basierend auf Echtzeitdaten hinzufügen
+        });
+    </script>
+    
+    <!-- Google Maps API laden - WICHTIG: Ersetzen Sie YOUR_API_KEY mit Ihrem echten API Key -->
+    <script async defer 
+        src="https://maps.googleapis.com/maps/api/js?key=<%= googleMapsApiKey %>&callback=initMap">
+    </script>
+</body>
+</html>
+
