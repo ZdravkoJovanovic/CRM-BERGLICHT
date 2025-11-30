@@ -58,12 +58,15 @@ const io = new socket_io_1.Server(httpServer);
 const AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID || '';
 const AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY || '';
 const STAMMDATEN_BUCKET = 'crm-berglicht-leads-formulare';
+if (!AWS_ACCESS_KEY_ID || !AWS_SECRET_ACCESS_KEY) {
+    console.warn('[WARN] AWS-Credentials nicht gesetzt. S3-Funktionen werden nicht funktionieren.');
+}
 const s3Client = new client_s3_1.S3Client({
     region: 'eu-north-1',
-    credentials: {
+    credentials: AWS_ACCESS_KEY_ID && AWS_SECRET_ACCESS_KEY ? {
         accessKeyId: AWS_ACCESS_KEY_ID,
         secretAccessKey: AWS_SECRET_ACCESS_KEY
-    },
+    } : undefined,
     maxAttempts: 3
 });
 const ROOT_DIR = path_1.default.join(__dirname, '..');
@@ -383,6 +386,9 @@ const ALL_BUCKETS = [
     'crm-berglicht-mitarbeiter-liste'
 ];
 const calculateBucketSize = async (bucketName) => {
+    if (!AWS_ACCESS_KEY_ID || !AWS_SECRET_ACCESS_KEY) {
+        throw new Error('AWS-Credentials nicht konfiguriert');
+    }
     let totalSize = 0;
     let objectCount = 0;
     let continuationToken;
