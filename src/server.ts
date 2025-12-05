@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
@@ -7,6 +7,7 @@ import { promises as fs } from 'fs';
 import { Readable } from 'stream';
 import archiver from 'archiver';
 import { S3Client, ListObjectsV2Command, GetObjectCommand, _Object as S3Object } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import authRouter, { setSocketIO as setAuthSocketIO } from './routes/auth';
 import pdfRouter from './routes/pdf';
 import verifyRouter, { setSocketIO as setVerifySocketIO } from './routes/verify';
@@ -16,20 +17,42 @@ import formulareRouter, { setSocketIO as setFormulareSocketIO } from './routes/f
 import leadsRouter, { setSocketIO as setLeadsSocketIO } from './routes/leads';
 import project6Router, { setSocketIO as setProject6SocketIO } from './routes/project6';
 
+// .env-Datei explizit laden (aus dem Root-Verzeichnis)
+// In CommonJS ist __dirname verfügbar, aber TypeScript erkennt es nicht immer
+// Wir verwenden einen Workaround für TypeScript
+const rootDir = path.resolve(__dirname, '..');
+dotenv.config({ path: path.join(rootDir, '.env') });
+
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer);
 
-const AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID || '';
-const AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY || '';
+// AWS Credentials aus .env lesen
+const AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID?.trim() || '';
+const AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY?.trim() || '';
 const STAMMDATEN_BUCKET = 'crm-berglicht-leads-formulare';
 
+// Verfügbare Buckets
+const AVAILABLE_BUCKETS = [
+  'crm-berglicht-bk-formulare-mit-pdfs',
+  'crm-berglicht-data',
+  'crm-berglicht-e-formulare-mit-fotos',
+  'crm-berglicht-leads-formulare',
+  'crm-berglicht-mitarbeiter-liste'
+];
+
+// Debug-Ausgabe für Credentials (ohne die tatsächlichen Werte zu zeigen)
 if (!AWS_ACCESS_KEY_ID || !AWS_SECRET_ACCESS_KEY) {
   console.warn('[WARN] AWS-Credentials nicht gesetzt. S3-Funktionen werden nicht funktionieren.');
+  console.warn('[WARN] Bitte prüfe deine .env-Datei im Projekt-Root-Verzeichnis.');
+  console.warn('[WARN] Erwartete Variablen: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY');
+} else {
+  console.log('[INFO] AWS-Credentials erfolgreich aus .env geladen.');
+  console.log('[INFO] Access Key ID:', AWS_ACCESS_KEY_ID.substring(0, 8) + '...');
 }
 
 const s3Client = new S3Client({
-  region: 'eu-north-1',
+  region: process.env.AWS_REGION || 'eu-north-1',
   credentials: AWS_ACCESS_KEY_ID && AWS_SECRET_ACCESS_KEY ? {
     accessKeyId: AWS_ACCESS_KEY_ID,
     secretAccessKey: AWS_SECRET_ACCESS_KEY
@@ -60,22 +83,26 @@ let folderCacheExpires = 0;
 let folderCachePromise: Promise<string[]> | null = null;
 
 const checkAWSCredentials = (): { valid: boolean; error?: string } => {
-  if (!AWS_ACCESS_KEY_ID || !AWS_SECRET_ACCESS_KEY) {
+  // Credentials dynamisch aus process.env lesen (falls .env nachträglich geladen wurde)
+  const accessKey = process.env.AWS_ACCESS_KEY_ID?.trim() || '';
+  const secretKey = process.env.AWS_SECRET_ACCESS_KEY?.trim() || '';
+  
+  if (!accessKey || !secretKey) {
     return {
       valid: false,
-      error: 'AWS-Credentials nicht konfiguriert. Bitte AWS_ACCESS_KEY_ID und AWS_SECRET_ACCESS_KEY in den Environment-Variablen setzen.'
+      error: 'AWS-Credentials nicht konfiguriert. Bitte AWS_ACCESS_KEY_ID und AWS_SECRET_ACCESS_KEY in der .env-Datei setzen.'
     };
   }
-  if (AWS_ACCESS_KEY_ID.trim() === '' || AWS_SECRET_ACCESS_KEY.trim() === '') {
+  if (accessKey === '' || secretKey === '') {
     return {
       valid: false,
-      error: 'AWS-Credentials sind leer. Bitte AWS_ACCESS_KEY_ID und AWS_SECRET_ACCESS_KEY in den Environment-Variablen setzen.'
+      error: 'AWS-Credentials sind leer. Bitte AWS_ACCESS_KEY_ID und AWS_SECRET_ACCESS_KEY in der .env-Datei setzen.'
     };
   }
   return { valid: true };
 };
 
-const fetchFolderPrefixes = async () => {
+const fetchFolderPrefixes = async (bucketName: string = STAMMDATEN_BUCKET) => {
   const credCheck = checkAWSCredentials();
   if (!credCheck.valid) {
     throw new Error(credCheck.error);
@@ -86,7 +113,7 @@ const fetchFolderPrefixes = async () => {
 
   do {
     const response = await s3Client.send(new ListObjectsV2Command({
-      Bucket: STAMMDATEN_BUCKET,
+      Bucket: bucketName,
       Delimiter: '/',
       ContinuationToken: continuationToken
     }));
@@ -147,25 +174,99 @@ const tryMatchFolder = (prefixes: string[], normalizedQuery: string) => {
   return null;
 };
 
-const findFolderMatch = async (query: string) => {
+const findFolderMatch = async (query: string, bucketName: string = STAMMDATEN_BUCKET) => {
   const normalizedQuery = normalizeSearchValue(query);
   if (!normalizedQuery) return null;
 
-  const prefixes = await getFolderPrefixes();
-  const initialMatch = tryMatchFolder(prefixes, normalizedQuery);
-  if (initialMatch) {
-    return initialMatch;
-  }
-
-  const refreshed = await refreshFolderCache();
-  if (refreshed === prefixes) {
-    return null;
-  }
-
-  return tryMatchFolder(refreshed, normalizedQuery);
+  const prefixes = await fetchFolderPrefixes(bucketName);
+  return tryMatchFolder(prefixes, normalizedQuery);
 };
 
-const listFolderObjects = async (rawPrefix: string) => {
+// Prüft, ob ein Ordner nur CSV-Dateien enthält (optimiert: bricht früh ab)
+const hasOnlyCsvFiles = async (folderPrefix: string, bucketName: string): Promise<boolean> => {
+  const credCheck = checkAWSCredentials();
+  if (!credCheck.valid) {
+    throw new Error(credCheck.error);
+  }
+
+  const effectivePrefix = ensureTrailingSlash(folderPrefix);
+  let hasAnyFile = false;
+  let continuationToken: string | undefined;
+  const maxFilesToCheck = 100; // Maximal 100 Dateien prüfen für Performance
+  let filesChecked = 0;
+
+  do {
+    const response = await s3Client.send(new ListObjectsV2Command({
+      Bucket: bucketName,
+      Prefix: effectivePrefix,
+      MaxKeys: 100, // Weniger Dateien pro Request
+      ContinuationToken: continuationToken
+    }));
+
+    for (const item of response.Contents || []) {
+      if (!item.Key) continue;
+      // Überspringe Ordner-Marker
+      if (item.Key.endsWith('/') && (!item.Size || item.Size === 0)) continue;
+      
+      hasAnyFile = true;
+      filesChecked++;
+      
+      const fileName = item.Key.substring(effectivePrefix.length);
+      const extension = fileName.toLowerCase().split('.').pop() || '';
+      
+      // Wenn es eine Datei ist (nicht ein Unterordner) und nicht CSV
+      if (extension && extension !== 'csv' && !fileName.endsWith('/')) {
+        // Früher Abbruch: Nicht-CSV-Datei gefunden
+        return false; // Hat andere Dateien, nicht nur CSV
+      }
+      
+      // Performance: Stoppe nach maxFilesToCheck Dateien
+      if (filesChecked >= maxFilesToCheck) {
+        // Wenn wir schon viele Dateien geprüft haben und alle CSV waren,
+        // nehmen wir an, dass der Ordner nur CSV hat
+        return true;
+      }
+    }
+
+    continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
+  } while (continuationToken);
+
+  // Wenn keine Dateien gefunden oder alle geprüften Dateien waren CSV, return true (nur CSV)
+  return hasAnyFile;
+};
+
+// Listet Unterordner eines Mitarbeiter-Ordners auf
+const listSubfolders = async (parentPrefix: string, bucketName: string): Promise<string[]> => {
+  const credCheck = checkAWSCredentials();
+  if (!credCheck.valid) {
+    throw new Error(credCheck.error);
+  }
+
+  const effectivePrefix = ensureTrailingSlash(parentPrefix);
+  const subfolders: string[] = [];
+  let continuationToken: string | undefined;
+
+  do {
+    const response = await s3Client.send(new ListObjectsV2Command({
+      Bucket: bucketName,
+      Prefix: effectivePrefix,
+      Delimiter: '/',
+      ContinuationToken: continuationToken
+    }));
+
+    (response.CommonPrefixes || []).forEach((entry) => {
+      if (entry.Prefix) {
+        subfolders.push(entry.Prefix);
+      }
+    });
+
+    continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
+  } while (continuationToken);
+
+  return subfolders;
+};
+
+const listFolderObjects = async (rawPrefix: string, bucketName: string = STAMMDATEN_BUCKET) => {
   const credCheck = checkAWSCredentials();
   if (!credCheck.valid) {
     throw new Error(credCheck.error);
@@ -176,9 +277,51 @@ const listFolderObjects = async (rawPrefix: string) => {
   const objects: S3Object[] = [];
   let continuationToken: string | undefined;
 
+  // Spezialfall: Wenn es ein Mitarbeiter-Ordner ist (z.B. "Abdullah_Ali_Farag/"),
+  // liste die Unterordner (Kunden-Ordner) auf und filtere die, die nur CSV haben
+  // Ein Mitarbeiter-Ordner ist ein Ordner auf der ersten Ebene (nur ein "/" am Ende)
+  const prefixParts = effectivePrefix.split('/').filter(p => p.length > 0);
+  const isMitarbeiterFolder = prefixParts.length === 1 && effectivePrefix.endsWith('/');
+  
+  if (isMitarbeiterFolder && bucketName === 'crm-berglicht-e-formulare-mit-fotos') {
+    // Liste alle Unterordner (Kunden-Ordner) auf
+    const subfolders = await listSubfolders(effectivePrefix, bucketName);
+    console.log(`[STAMMDATEN] Mitarbeiter ${effectivePrefix}: ${subfolders.length} Kunden-Ordner gefunden`);
+    
+    // Filtere: Nur Ordner anzeigen, die mehr als nur CSV enthalten
+    let filteredCount = 0;
+    for (const subfolder of subfolders) {
+      try {
+        const hasOnlyCsv = await hasOnlyCsvFiles(subfolder, bucketName);
+        if (!hasOnlyCsv) {
+          // Erstelle ein "virtuelles" Objekt für den Ordner
+          objects.push({
+            Key: subfolder,
+            Size: 0,
+            LastModified: new Date()
+          } as S3Object);
+          filteredCount++;
+        }
+      } catch (error: any) {
+        console.error(`[STAMMDATEN] Fehler beim Prüfen von ${subfolder}:`, error.message);
+        // Bei Fehler: Ordner trotzdem anzeigen (sicherer)
+        objects.push({
+          Key: subfolder,
+          Size: 0,
+          LastModified: new Date()
+        } as S3Object);
+        filteredCount++;
+      }
+    }
+    
+    console.log(`[STAMMDATEN] ${filteredCount} von ${subfolders.length} Kunden-Ordnern haben andere Dateien als CSV`);
+    return { objects, prefix: effectivePrefix };
+  }
+
+  // Normale Datei-Listung
   do {
     const response = await s3Client.send(new ListObjectsV2Command({
-      Bucket: STAMMDATEN_BUCKET,
+      Bucket: bucketName,
       Prefix: effectivePrefix,
       ContinuationToken: continuationToken
     }));
@@ -235,8 +378,11 @@ app.post('/api/stammdaten/search', async (req, res) => {
     });
   }
 
-  const { query } = req.body;
+  const { query, bucket } = req.body;
   const rawPrefix = typeof query === 'string' ? query.trim() : '';
+  const bucketName = typeof bucket === 'string' && AVAILABLE_BUCKETS.includes(bucket) 
+    ? bucket 
+    : STAMMDATEN_BUCKET;
 
   if (!rawPrefix) {
     return res.status(400).json({ success: false, error: 'Suchbegriff fehlt' });
@@ -245,14 +391,14 @@ app.post('/api/stammdaten/search', async (req, res) => {
   try {
     let resolvedPrefix = normalizePrefix(rawPrefix).replace(/\/$/, '');
     let autoMatched = false;
-    let { objects, prefix } = await listFolderObjects(rawPrefix);
+    let { objects, prefix } = await listFolderObjects(rawPrefix, bucketName);
 
     if (objects.length === 0) {
-      const match = await findFolderMatch(rawPrefix);
+      const match = await findFolderMatch(rawPrefix, bucketName);
       if (match) {
         autoMatched = true;
         resolvedPrefix = match;
-        const result = await listFolderObjects(match);
+        const result = await listFolderObjects(match, bucketName);
         objects = result.objects;
         prefix = result.prefix;
       }
@@ -275,6 +421,7 @@ app.post('/api/stammdaten/search', async (req, res) => {
       totalFiles: objects.length,
       totalSize,
       autoMatched,
+      bucket: bucketName,
       items: objects.map((obj) => ({
         key: obj.Key,
         size: obj.Size || 0,
@@ -298,52 +445,79 @@ app.get('/api/stammdaten/download', async (req, res) => {
   }
 
   const rawPrefix = typeof req.query.prefix === 'string' ? req.query.prefix : '';
+  const bucketName = typeof req.query.bucket === 'string' && AVAILABLE_BUCKETS.includes(req.query.bucket)
+    ? req.query.bucket
+    : STAMMDATEN_BUCKET;
 
   if (!rawPrefix) {
     return res.status(400).json({ success: false, error: 'Prefix fehlt' });
   }
 
   try {
-    const { objects, prefix } = await listFolderObjects(rawPrefix);
+    // REKURSIV alle Dateien aus dem Ordner und allen Unterordnern holen
+    const effectivePrefix = ensureTrailingSlash(rawPrefix);
+    const allObjects: S3Object[] = [];
+    let continuationToken: string | undefined;
 
-    if (objects.length === 0) {
+    do {
+      const response = await s3Client.send(new ListObjectsV2Command({
+        Bucket: bucketName,
+        Prefix: effectivePrefix,
+        ContinuationToken: continuationToken
+      }));
+
+      (response.Contents || []).forEach((item) => {
+        if (!item.Key) return;
+        // Überspringe Ordner-Marker
+        if (item.Key.endsWith('/') && (!item.Size || item.Size === 0)) return;
+        allObjects.push(item);
+      });
+
+      continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
+    } while (continuationToken);
+
+    if (allObjects.length === 0) {
       return res.status(404).json({ success: false, error: 'Keine Dateien gefunden' });
     }
 
-    const zipName = `${normalizePrefix(rawPrefix).replace(/\//g, '_') || 'stammdaten'}.zip`;
-
-    res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="${zipName}"`);
-
-    const archive = archiver('zip', { zlib: { level: 9 } });
-    archive.on('error', (archiveError) => {
-      console.error('[STAMMDATEN] Archiv Fehler:', archiveError);
-      if (!res.headersSent) {
-        res.status(500).json({ success: false, error: 'Archivierung fehlgeschlagen' });
-      } else {
-        res.end();
-      }
+    // Filtere: Nur Dateien die NICHT CSV sind
+    const nonCsvObjects = allObjects.filter((obj) => {
+      if (!obj.Key) return false;
+      if (obj.Key.endsWith('/')) return false; // Überspringe Ordner
+      
+      const extension = (obj.Key.toLowerCase().split('.').pop() || '').toLowerCase();
+      return extension !== 'csv';
     });
 
-    archive.pipe(res);
-
-    for (const obj of objects) {
-      if (!obj.Key) continue;
-      const relativePath = obj.Key.substring(prefix.length);
-      if (!relativePath) continue;
-
-      const file = await s3Client.send(new GetObjectCommand({
-        Bucket: STAMMDATEN_BUCKET,
-        Key: obj.Key
-      }));
-
-      const bodyStream = file.Body as Readable | undefined;
-      if (!bodyStream) continue;
-
-      archive.append(bodyStream, { name: relativePath });
+    if (nonCsvObjects.length === 0) {
+      return res.status(404).json({ success: false, error: 'Keine nicht-CSV Dateien gefunden' });
     }
 
-    archive.finalize();
+    // Erstelle Proxy-Links (über unseren Server, umgeht CORS)
+    const downloadLinks: Array<{ url: string; filename: string; key: string }> = [];
+
+    for (const obj of nonCsvObjects) {
+      if (!obj.Key) continue;
+      
+      // relativePath z.B. "kunde@email.com/foto.jpg"
+      const relativePath = obj.Key.substring(effectivePrefix.length);
+      
+      // Dateiname: Kundenordner + Dateiname (z.B. "kunde@email.com_foto.jpg")
+      // Ersetze "/" durch "_" damit der Kundenordner im Dateinamen sichtbar ist
+      const filename = relativePath.replace(/\//g, '_') || obj.Key.split('/').pop() || 'datei';
+      
+      downloadLinks.push({ 
+        url: `/api/stammdaten/file?bucket=${encodeURIComponent(bucketName)}&key=${encodeURIComponent(obj.Key)}&filename=${encodeURIComponent(filename)}`,
+        filename,
+        key: obj.Key
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      count: downloadLinks.length,
+      links: downloadLinks 
+    });
   } catch (error: any) {
     console.error('[STAMMDATEN] Download Fehler:', error.message || error);
     if (!res.headersSent) {
@@ -354,7 +528,207 @@ app.get('/api/stammdaten/download', async (req, res) => {
   }
 });
 
-app.get('/api/stammdaten/list', async (_req, res) => {
+// Proxy-Route: Datei von S3 direkt streamen (umgeht CORS)
+app.get('/api/stammdaten/file', async (req, res) => {
+  const credCheck = checkAWSCredentials();
+  if (!credCheck.valid) {
+    return res.status(503).json({ success: false, error: credCheck.error });
+  }
+
+  const key = typeof req.query.key === 'string' ? req.query.key : '';
+  const bucketName = typeof req.query.bucket === 'string' && AVAILABLE_BUCKETS.includes(req.query.bucket)
+    ? req.query.bucket
+    : STAMMDATEN_BUCKET;
+  
+  // Dateiname aus Query oder aus Key extrahieren
+  const customFilename = typeof req.query.filename === 'string' ? req.query.filename : '';
+
+  if (!key) {
+    return res.status(400).json({ success: false, error: 'Key fehlt' });
+  }
+
+  try {
+    const command = new GetObjectCommand({
+      Bucket: bucketName,
+      Key: key
+    });
+
+    const response = await s3Client.send(command);
+    
+    // Dateiname: Benutze den übergebenen Namen (enthält Kundenordner) oder fallback
+    const filename = customFilename || key.split('/').pop() || 'datei';
+    
+    // Content-Type setzen
+    res.setHeader('Content-Type', response.ContentType || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+    
+    if (response.ContentLength) {
+      res.setHeader('Content-Length', response.ContentLength);
+    }
+
+    // Stream die Datei direkt zum Client
+    if (response.Body) {
+      const stream = response.Body as any;
+      stream.pipe(res);
+    } else {
+      res.status(404).json({ success: false, error: 'Datei nicht gefunden' });
+    }
+  } catch (error: any) {
+    console.error('[STAMMDATEN] File-Proxy Fehler:', error.message);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, error: 'Datei konnte nicht geladen werden' });
+    }
+  }
+});
+
+app.get('/api/stammdaten/buckets', async (_req, res) => {
+  res.json({ success: true, buckets: AVAILABLE_BUCKETS });
+});
+
+// Schnelle Statistiken für einen Bucket (nur nicht-CSV Dateien)
+app.post('/api/stammdaten/bucket-details', async (req, res) => {
+  const credCheck = checkAWSCredentials();
+  if (!credCheck.valid) {
+    return res.status(503).json({ 
+      success: false, 
+      error: credCheck.error,
+      code: 'AWS_CREDENTIALS_MISSING'
+    });
+  }
+
+  const { bucket, socketId } = req.body;
+  const bucketName = typeof bucket === 'string' && AVAILABLE_BUCKETS.includes(bucket)
+    ? bucket
+    : 'crm-berglicht-e-formulare-mit-fotos';
+
+  // Sofortige Antwort senden, dann im Hintergrund verarbeiten
+  res.json({ success: true, message: 'Statistiken werden geladen...' });
+
+  try {
+    if (socketId && io) {
+      io.to(socketId).emit('bucket-stats-progress', { message: 'Starte Analyse...', progress: 0 });
+    }
+
+    console.log(`[STAMMDATEN] Starte schnelle Statistiken für Bucket: ${bucketName}`);
+    
+    // Liste alle ersten-Level-Ordner (Mitarbeiter-Ordner)
+    const mitarbeiterPrefixes = await fetchFolderPrefixes(bucketName);
+    console.log(`[STAMMDATEN] Gefunden: ${mitarbeiterPrefixes.length} Mitarbeiter-Ordner`);
+    
+    if (socketId && io) {
+      io.to(socketId).emit('bucket-stats-progress', { 
+        message: `${mitarbeiterPrefixes.length} Mitarbeiter-Ordner gefunden, analysiere...`, 
+        progress: 10 
+      });
+    }
+    
+    // Nur Dateitypen für NICHT-CSV Dateien
+    const fileTypes = new Map<string, number>();
+    let totalNonCsvFiles = 0;
+    let processedMitarbeiter = 0;
+    const mitarbeiterMitAnderenDateien = new Set<string>(); // Set für eindeutige Mitarbeiter-Namen
+    
+    // Optimierte Verarbeitung: Nur erste Dateien pro Kunden-Ordner prüfen
+    const batchSize = 20; // Größere Batches für bessere Performance
+    const maxFilesPerKunde = 50; // Nur erste 50 Dateien pro Kunden-Ordner prüfen (schneller)
+    
+    for (let i = 0; i < mitarbeiterPrefixes.length; i += batchSize) {
+      const batch = mitarbeiterPrefixes.slice(i, i + batchSize);
+      
+      await Promise.all(batch.map(async (mitarbeiterPrefix) => {
+        try {
+          const mitarbeiterName = mitarbeiterPrefix.replace(/\/$/, '');
+          const kundenPrefixes = await listSubfolders(mitarbeiterPrefix, bucketName);
+          let hatAndereDateien = false;
+          let filesChecked = 0;
+          
+          // Prüfe nur erste Dateien in jedem Kunden-Ordner (schneller)
+          for (const kundenPrefix of kundenPrefixes) {
+            if (hatAndereDateien && filesChecked > maxFilesPerKunde) break; // Früh abbrechen wenn gefunden
+            
+            const effectivePrefix = ensureTrailingSlash(kundenPrefix);
+            
+            try {
+              const response = await s3Client.send(new ListObjectsV2Command({
+                Bucket: bucketName,
+                Prefix: effectivePrefix,
+                MaxKeys: 100 // Weniger Dateien pro Request
+              }));
+
+              (response.Contents || []).forEach((item) => {
+                if (!item.Key) return;
+                if (item.Key.endsWith('/') && (!item.Size || item.Size === 0)) return;
+                
+                filesChecked++;
+                const extension = (item.Key.toLowerCase().split('.').pop() || '').toLowerCase();
+                
+                // Nur NICHT-CSV Dateien zählen
+                if (extension && extension !== 'csv') {
+                  totalNonCsvFiles++;
+                  fileTypes.set(extension, (fileTypes.get(extension) || 0) + 1);
+                  hatAndereDateien = true;
+                }
+              });
+            } catch (kundenError: any) {
+              // Überspringe fehlerhafte Kunden-Ordner
+              continue;
+            }
+          }
+          
+          // Wenn dieser Mitarbeiter andere Dateien hat, zur Liste hinzufügen
+          if (hatAndereDateien) {
+            mitarbeiterMitAnderenDateien.add(mitarbeiterName);
+          }
+        } catch (error: any) {
+          console.error(`[STAMMDATEN] Fehler bei Mitarbeiter ${mitarbeiterPrefix}:`, error.message);
+        }
+      }));
+      
+      processedMitarbeiter += batch.length;
+      const progress = Math.min(90, 10 + Math.floor((processedMitarbeiter / mitarbeiterPrefixes.length) * 80));
+      
+      if (socketId && io) {
+        io.to(socketId).emit('bucket-stats-progress', { 
+          message: `Verarbeitet ${processedMitarbeiter}/${mitarbeiterPrefixes.length} Mitarbeiter...`, 
+          progress 
+        });
+      }
+      
+      // Log alle 100 Mitarbeiter
+      if (processedMitarbeiter % 100 === 0) {
+        console.log(`[STAMMDATEN] Fortschritt: ${processedMitarbeiter}/${mitarbeiterPrefixes.length} (${progress}%)`);
+      }
+    }
+    
+    // Sortiere Dateitypen nach Häufigkeit
+    const sortedFileTypes = Array.from(fileTypes.entries())
+      .sort((a, b) => b[1] - a[1]);
+    
+    // Konvertiere Set zu sortiertem Array
+    const mitarbeiterListe = Array.from(mitarbeiterMitAnderenDateien).sort();
+    
+    const stats = {
+      bucket: bucketName,
+      totalNonCsvFiles,
+      mitarbeiterCount: mitarbeiterListe.length,
+      mitarbeiter: mitarbeiterListe,
+      fileTypes: sortedFileTypes.map(([ext, count]) => ({ extension: ext, count }))
+    };
+
+    console.log(`[STAMMDATEN] Statistiken geladen: ${totalNonCsvFiles} nicht-CSV Dateien, ${sortedFileTypes.length} verschiedene Formate`);
+    
+    if (socketId && io) {
+      io.to(socketId).emit('bucket-stats-complete', { success: true, stats });
+    }
+  } catch (error: any) {
+    console.error('[STAMMDATEN] Bucket-Details Fehler:', error.message || error);
+    if (socketId && io) {
+      io.to(socketId).emit('bucket-stats-error', { error: error.message || 'Statistiken konnten nicht geladen werden' });
+    }
+  }
+});
+
+app.get('/api/stammdaten/list', async (req, res) => {
   try {
     const rawList = await fs.readFile(DAVID_STRUCTURE_FILE, 'utf-8');
     const parsed = JSON.parse(rawList);

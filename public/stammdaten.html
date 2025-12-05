@@ -13,20 +13,113 @@
             margin: 0;
             min-height: 100vh;
             background: #050608;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             font-family: 'Inter', sans-serif;
             color: #f5f5f5;
+            display: flex;
+            flex-direction: column;
         }
 
-        .wrapper {
-            width: min(92vw, 640px);
+        .container {
+            display: flex;
+            flex: 1;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .sidebar {
+            width: 280px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .bucket-button {
+            padding: 14px 18px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: transparent;
+            color: inherit;
+            cursor: pointer;
+            font-size: 0.9rem;
+            text-align: left;
+            transition: all 0.2s;
+            word-break: break-word;
+        }
+
+        .bucket-button:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .bucket-button.active {
+            background: rgba(88, 166, 255, 0.15);
+            border-color: #58a6ff;
+            color: #58a6ff;
+        }
+
+        .bucket-stats {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            font-size: 0.85rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .bucket-stats h3 {
+            margin: 0 0 10px 0;
+            color: #58a6ff;
+            font-size: 1rem;
+        }
+
+        .bucket-stats .stat-summary {
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .bucket-stats .mitarbeiter-item {
+            margin: 10px 0;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 5px;
+        }
+
+        .bucket-stats .mitarbeiter-name {
+            font-weight: bold;
+            color: #58a6ff;
+            margin-bottom: 5px;
+        }
+
+        .bucket-stats .kunden-item {
+            margin-left: 15px;
+            margin-top: 5px;
+            padding: 5px;
+            font-size: 0.8rem;
+            opacity: 0.9;
+        }
+
+        .bucket-stats .loading {
+            opacity: 0.6;
+            font-style: italic;
+        }
+
+        .main-content {
+            flex: 1;
             display: flex;
             flex-direction: column;
             gap: 18px;
-            align-items: center;
-            text-align: center;
+        }
+
+        .search-section {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
 
         input {
@@ -35,10 +128,9 @@
             border-bottom: 2px solid rgba(255, 255, 255, 0.2);
             background: transparent;
             color: inherit;
-            font-size: clamp(1.25rem, 4vw, 2.2rem);
+            font-size: clamp(1.1rem, 3vw, 1.8rem);
             padding: 12px 8px;
             outline: none;
-            text-align: center;
         }
 
         input:focus {
@@ -46,13 +138,13 @@
         }
 
         #statusLine {
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             opacity: 0.85;
         }
 
         #results {
-            width: 100%;
-            min-height: 160px;
+            flex: 1;
+            min-height: 300px;
             background: rgba(255, 255, 255, 0.02);
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 10px;
@@ -62,50 +154,84 @@
             font-size: 0.9rem;
             white-space: pre-wrap;
             word-break: break-word;
+            overflow-y: auto;
         }
 
-        .buttonRow {
+        .download-section {
             display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            width: 100%;
             justify-content: center;
         }
 
-        button {
-            padding: 10px 18px;
+        #downloadBtn {
+            padding: 14px 32px;
             border-radius: 999px;
             border: 1px solid rgba(255, 255, 255, 0.2);
             background: transparent;
             color: inherit;
             cursor: pointer;
-            font-size: 0.95rem;
-            min-width: 180px;
+            font-size: 1rem;
+            min-width: 200px;
+            transition: all 0.2s;
         }
 
-        button[disabled] {
+        #downloadBtn:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: #58a6ff;
+        }
+
+        #downloadBtn[disabled] {
             opacity: 0.5;
             cursor: not-allowed;
+        }
+
+        #downloadBtn.hidden {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+
+            .bucket-button {
+                flex: 1;
+                min-width: 150px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="wrapper">
-        <input 
-            id="stammdatenSearch" 
-            type="text" 
-            placeholder="Suchbegriff eingeben..."
-            autocomplete="off"
-            autofocus
-        />
-        <div id="statusLine">Tippe einen Ordnernamen aus dem Bucket ein.</div>
-        <pre id="results">Noch keine Suche gestartet.</pre>
-        <div class="buttonRow">
-            <button id="downloadBtn" hidden>Ordner herunterladen</button>
-            <button id="runListBtn">Liste ausführen</button>
-            <button id="bundleBtn" hidden>Großen Ordner laden</button>
-            <button id="bucketStatsBtn">Bucket-Statistiken</button>
-            <button id="downloadAllBucketsBtn">Alle Buckets herunterladen</button>
+    <div class="container">
+        <div class="sidebar" id="bucketSidebar">
+            <!-- Bucket-Buttons werden dynamisch geladen -->
+            <div class="bucket-stats" id="bucketStats" style="display: none;">
+                <!-- Statistiken werden hier angezeigt -->
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="search-section">
+                <input 
+                    id="stammdatenSearch" 
+                    type="text" 
+                    placeholder="Suchbegriff eingeben..."
+                    autocomplete="off"
+                    autofocus
+                />
+                <div id="statusLine">Wähle einen Bucket und tippe einen Ordnernamen ein.</div>
+            </div>
+
+            <pre id="results">Noch keine Suche gestartet.</pre>
+
+            <div class="download-section">
+                <button id="downloadBtn" class="hidden">Ordner herunterladen</button>
+            </div>
         </div>
     </div>
 
@@ -116,21 +242,194 @@
         const resultsBox = document.getElementById('results');
         const downloadBtn = document.getElementById('downloadBtn');
         const statusLine = document.getElementById('statusLine');
-        const runListBtn = document.getElementById('runListBtn');
-        const bundleBtn = document.getElementById('bundleBtn');
-        const bucketStatsBtn = document.getElementById('bucketStatsBtn');
-        const downloadAllBucketsBtn = document.getElementById('downloadAllBucketsBtn');
+        const bucketSidebar = document.getElementById('bucketSidebar');
 
         let currentPrefix = '';
         let currentResolvedPrefix = '';
+        let currentBucket = 'crm-berglicht-leads-formulare';
         let debounceTimer;
-        let cachedNames = null;
-        let bulkEntries = [];
-        let bulkRunning = false;
+        let availableBuckets = [];
+
+        // Bucket-Namen werden 1:1 so angezeigt wie in AWS
+
+        // Buckets laden und Buttons erstellen
+        async function loadBuckets() {
+            try {
+                const response = await fetch('/api/stammdaten/buckets');
+                const payload = await response.json();
+                
+                if (payload.success && Array.isArray(payload.buckets)) {
+                    availableBuckets = payload.buckets;
+                    renderBucketButtons();
+                } else {
+                    // Fallback: Verwende die Standard-Buckets
+                    availableBuckets = [
+                        'crm-berglicht-bk-formulare-mit-pdfs',
+                        'crm-berglicht-data',
+                        'crm-berglicht-e-formulare-mit-fotos',
+                        'crm-berglicht-leads-formulare',
+                        'crm-berglicht-mitarbeiter-liste'
+                    ];
+                    renderBucketButtons();
+                }
+            } catch (error) {
+                console.error('[STAMMDATEN] Fehler beim Laden der Buckets:', error);
+                // Fallback
+                availableBuckets = [
+                    'crm-berglicht-bk-formulare-mit-pdfs',
+                    'crm-berglicht-data',
+                    'crm-berglicht-e-formulare-mit-fotos',
+                    'crm-berglicht-leads-formulare',
+                    'crm-berglicht-mitarbeiter-liste'
+                ];
+                renderBucketButtons();
+            }
+        }
+
+        function renderBucketButtons() {
+            bucketSidebar.innerHTML = '';
+            availableBuckets.forEach(bucket => {
+                const button = document.createElement('button');
+                button.className = 'bucket-button';
+                button.textContent = bucket; // Vollständiger Name 1:1 wie in AWS
+                button.dataset.bucket = bucket;
+                
+                if (bucket === currentBucket) {
+                    button.classList.add('active');
+                }
+
+                button.addEventListener('click', () => {
+                    // Alle Buttons deaktivieren
+                    document.querySelectorAll('.bucket-button').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    // Aktuellen Button aktivieren
+                    button.classList.add('active');
+                    currentBucket = bucket;
+                    resetResults();
+                    statusLine.textContent = `Bucket: ${bucket}`;
+                    // Statistiken nur für crm-berglicht-e-formulare-mit-fotos laden
+                    if (bucket === 'crm-berglicht-e-formulare-mit-fotos') {
+                        loadBucketStats(bucket);
+                    } else {
+                        const statsBox = document.getElementById('bucketStats');
+                        if (statsBox) {
+                            statsBox.style.display = 'none';
+                        }
+                    }
+                });
+
+                bucketSidebar.appendChild(button);
+            });
+            
+            // Statistiken-Box hinzufügen
+            const statsBox = document.createElement('div');
+            statsBox.className = 'bucket-stats';
+            statsBox.id = 'bucketStats';
+            statsBox.style.display = 'none';
+            bucketSidebar.appendChild(statsBox);
+            
+            // Statistiken nur für crm-berglicht-e-formulare-mit-fotos laden
+            if (currentBucket === 'crm-berglicht-e-formulare-mit-fotos') {
+                loadBucketStats(currentBucket);
+            }
+        }
+
+        async function loadBucketStats(bucketName) {
+            const statsBox = document.getElementById('bucketStats');
+            if (!statsBox) {
+                console.error('[STAMMDATEN] Stats-Box nicht gefunden');
+                return;
+            }
+            
+            statsBox.style.display = 'block';
+            statsBox.innerHTML = '<div class="loading">Lade Statistiken...</div>';
+            
+            try {
+                console.log('[STAMMDATEN] Lade Statistiken für:', bucketName);
+                
+                // Socket.io Events für Fortschritt
+                socket.on('bucket-stats-progress', (data) => {
+                    const progress = data.progress || 0;
+                    statsBox.innerHTML = `<div class="loading">${data.message || 'Lade...'} (${progress}%)</div>`;
+                });
+                
+                socket.on('bucket-stats-complete', (data) => {
+                    if (!data.success || !data.stats) {
+                        statsBox.innerHTML = '<div class="loading">Fehler beim Laden der Statistiken</div>';
+                        return;
+                    }
+                    
+                    const stats = data.stats;
+                    let html = `<h3>Statistiken: ${bucketName}</h3>`;
+                    html += `<div class="stat-summary">`;
+                    html += `<div><strong>Nicht-CSV Dateien gesamt:</strong> ${stats.totalNonCsvFiles}</div>`;
+                    html += `<div><strong>Mitarbeiter mit anderen Dateien:</strong> ${stats.mitarbeiterCount}</div>`;
+                    html += `</div>`;
+                    
+                    if (stats.fileTypes && stats.fileTypes.length > 0) {
+                        html += `<div class="stat-summary" style="margin-top: 15px;">`;
+                        html += `<div><strong>Dateiformate:</strong></div>`;
+                        stats.fileTypes.forEach(type => {
+                            html += `<div>${type.extension}: ${type.count}</div>`;
+                        });
+                        html += `</div>`;
+                    } else {
+                        html += `<div class="stat-summary" style="margin-top: 15px;">Keine nicht-CSV Dateien gefunden</div>`;
+                    }
+                    
+                    statsBox.innerHTML = html;
+                    
+                    // Automatisch JSON herunterladen
+                    const jsonData = {
+                        bucket: stats.bucket,
+                        erstellt: new Date().toISOString(),
+                        totalNonCsvFiles: stats.totalNonCsvFiles,
+                        mitarbeiterCount: stats.mitarbeiterCount,
+                        mitarbeiter: stats.mitarbeiter,
+                        fileTypes: stats.fileTypes
+                    };
+                    
+                    const jsonString = JSON.stringify(jsonData, null, 2);
+                    const blob = new Blob([jsonString], { type: 'application/json' });
+                    const url = window.URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `bucket-stats-${bucketName}-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+                    
+                    console.log('[STAMMDATEN] JSON heruntergeladen:', jsonData.mitarbeiterCount, 'Mitarbeiter');
+                });
+                
+                socket.on('bucket-stats-error', (data) => {
+                    statsBox.innerHTML = `<div class="loading">Fehler: ${data.error || 'Unbekannter Fehler'}</div>`;
+                });
+                
+                // Starte die Analyse
+                const response = await fetch('/api/stammdaten/bucket-details', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bucket: bucketName, socketId: socket.id })
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('[STAMMDATEN] Response Fehler:', response.status, errorText);
+                    statsBox.innerHTML = `<div class="loading">Fehler: HTTP ${response.status}</div>`;
+                }
+            } catch (error) {
+                console.error('[STAMMDATEN] Fehler beim Laden der Statistiken:', error);
+                statsBox.innerHTML = `<div class="loading">Fehler: ${error.message || 'Unbekannter Fehler'}</div>`;
+            }
+        }
 
         const emitSearch = (value) => {
             socket.emit('stammdaten-search', {
                 query: value,
+                bucket: currentBucket,
                 timestamp: new Date().toISOString()
             });
         };
@@ -139,7 +438,7 @@
             currentPrefix = '';
             currentResolvedPrefix = '';
             resultsBox.textContent = 'Noch keine Suche gestartet.';
-            downloadBtn.hidden = true;
+            downloadBtn.classList.add('hidden');
         };
 
         const formatSize = (bytes) => {
@@ -158,7 +457,9 @@
 
         const renderResults = (payload) => {
             const displayPrefix = formatFolderLabel(payload.resolvedPrefix || payload.prefix);
+            const bucketName = payload.bucket || currentBucket;
             const header = [
+                `Bucket: ${bucketName}`,
                 `Ordner: ${displayPrefix}${payload.autoMatched ? ' (automatisch gefunden)' : ''}`,
                 `Dateien: ${payload.totalFiles} • Gesamt: ${formatSize(payload.totalSize)}`
             ];
@@ -166,19 +467,23 @@
             const body = payload.items
                 .map((item) => {
                     const relative = item.key?.replace(payload.prefix, '') || item.key;
+                    // Wenn es ein Ordner ist (endet mit /), zeige "Ordner" statt Größe
+                    if (relative.endsWith('/')) {
+                        return `${relative} (Ordner)`;
+                    }
                     return `${relative}  (${formatSize(item.size)})`;
                 })
                 .join('\n');
 
             resultsBox.textContent = `${header.join('\n')}\n\n${body}`;
-            downloadBtn.hidden = false;
+            downloadBtn.classList.remove('hidden');
             downloadBtn.disabled = false;
             downloadBtn.textContent = 'Ordner herunterladen';
         };
 
         const showError = (message) => {
             resultsBox.textContent = message;
-            downloadBtn.hidden = true;
+            downloadBtn.classList.add('hidden');
             currentPrefix = '';
             currentResolvedPrefix = '';
         };
@@ -197,14 +502,14 @@
             }
 
             if (!silentStatus) {
-                statusLine.textContent = 'Suche in AWS...';
+                statusLine.textContent = `Suche in ${currentBucket}...`;
             }
 
             try {
                 const response = await fetch('/api/stammdaten/search', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query: trimmed })
+                    body: JSON.stringify({ query: trimmed, bucket: currentBucket })
                 });
 
                 const payload = await response.json().catch(() => ({}));
@@ -219,8 +524,11 @@
 
                 currentPrefix = payload.prefix;
                 currentResolvedPrefix = formatFolderLabel(payload.resolvedPrefix || payload.prefix);
+                if (payload.bucket) {
+                    currentBucket = payload.bucket;
+                }
                 renderResults(payload);
-                downloadBtn.hidden = false;
+                downloadBtn.classList.remove('hidden');
                 downloadBtn.disabled = false;
                 downloadBtn.textContent = 'Ordner herunterladen';
 
@@ -241,20 +549,6 @@
             }
         };
 
-        const loadNameList = async () => {
-            if (cachedNames) return cachedNames;
-
-            const response = await fetch('/api/stammdaten/list');
-            const payload = await response.json().catch(() => ({}));
-
-            if (!response.ok || !payload.success || !Array.isArray(payload.items)) {
-                throw new Error(payload.error || 'Liste konnte nicht geladen werden');
-            }
-
-            cachedNames = payload.items;
-            return cachedNames;
-        };
-
         searchInput.addEventListener('input', (event) => {
             const rawValue = event.target.value || '';
             const trimmed = rawValue.trim();
@@ -270,228 +564,66 @@
             debounceTimer = window.setTimeout(() => fetchFolder(rawValue), 400);
         });
 
-        downloadBtn.addEventListener('click', () => {
+        downloadBtn.addEventListener('click', async () => {
             if (!currentPrefix) return;
             downloadBtn.disabled = true;
             downloadBtn.textContent = 'Download läuft...';
-            const url = `/api/stammdaten/download?prefix=${encodeURIComponent(currentPrefix)}`;
-            window.location.href = url;
-            setTimeout(() => {
+            statusLine.textContent = 'Lade Dateien...';
+            
+            try {
+                const response = await fetch(`/api/stammdaten/download?prefix=${encodeURIComponent(currentPrefix)}&bucket=${encodeURIComponent(currentBucket)}`);
+                
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({ error: 'Download fehlgeschlagen' }));
+                    statusLine.textContent = error.error || 'Download fehlgeschlagen';
+                    downloadBtn.disabled = false;
+                    downloadBtn.textContent = 'Ordner herunterladen';
+                    return;
+                }
+                
+                const data = await response.json();
+                
+                if (!data.success || !data.links || data.links.length === 0) {
+                    statusLine.textContent = 'Keine Dateien zum Download gefunden';
+                    downloadBtn.disabled = false;
+                    downloadBtn.textContent = 'Ordner herunterladen';
+                    return;
+                }
+                
+                statusLine.textContent = `Lade ${data.count} Datei(en)...`;
+                
+                // Lade alle Dateien nacheinander herunter (über unseren Proxy-Server)
+                for (let i = 0; i < data.links.length; i++) {
+                    const item = data.links[i];
+                    statusLine.textContent = `Lade ${i + 1}/${data.count}: ${item.filename}`;
+                    
+                    // Direkter Download über unseren Server (kein CORS-Problem)
+                    const link = document.createElement('a');
+                    link.href = item.url; // URL ist jetzt /api/stammdaten/file?...
+                    link.download = item.filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    // 500ms Verzögerung zwischen Downloads
+                    if (i < data.links.length - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
+                }
+                
+                statusLine.textContent = `${data.count} Datei(en) heruntergeladen`;
                 downloadBtn.disabled = false;
                 downloadBtn.textContent = 'Ordner herunterladen';
-            }, 1500);
-        });
-
-        runListBtn.addEventListener('click', async () => {
-            if (bulkRunning) return;
-            bulkRunning = true;
-            runListBtn.disabled = true;
-            runListBtn.textContent = 'Liste läuft...';
-            bundleBtn.hidden = true;
-            bundleBtn.disabled = true;
-            bulkEntries = [];
-            const seenPrefixes = new Set();
-
-            try {
-                const names = await loadNameList();
-                if (!names.length) {
-                    statusLine.textContent = 'Liste ist leer.';
-                    return;
-                }
-
-                let counter = 0;
-                for (const rawName of names) {
-                    counter += 1;
-                    const name = (rawName || '').toString().trim();
-                    if (!name) continue;
-
-                    statusLine.textContent = `(${counter}/${names.length}) Suche ${name}...`;
-                    searchInput.value = name;
-                    emitSearch(name);
-
-                    const result = await fetchFolder(name, { silentStatus: true });
-
-                    if (result?.success && result.payload?.prefix) {
-                        const matchPrefix = result.payload.prefix;
-                        const matchLabel = formatFolderLabel(result.payload.resolvedPrefix || matchPrefix);
-
-                        if (!seenPrefixes.has(matchPrefix)) {
-                            seenPrefixes.add(matchPrefix);
-                            bulkEntries.push({ name: matchLabel, prefix: matchPrefix });
-                            statusLine.textContent = `(${counter}/${names.length}) Gefunden: ${matchLabel}`;
-                        } else {
-                            statusLine.textContent = `(${counter}/${names.length}) Bereits eingebunden: ${matchLabel}`;
-                        }
-                    } else {
-                        statusLine.textContent = `(${counter}/${names.length}) Kein Treffer: ${name}`;
-                    }
-                }
-
-                if (bulkEntries.length) {
-                    bundleBtn.hidden = false;
-                    bundleBtn.disabled = false;
-                    bundleBtn.textContent = `Großen Ordner laden (${bulkEntries.length})`;
-                } else {
-                    statusLine.textContent = 'Kein Treffer aus der Liste.';
-                }
             } catch (error) {
-                console.error('[STAMMDATEN] Listenlauf Fehler:', error);
-                statusLine.textContent = 'Listenlauf fehlgeschlagen.';
-            } finally {
-                bulkRunning = false;
-                runListBtn.disabled = false;
-                runListBtn.textContent = 'Liste ausführen';
+                console.error('[STAMMDATEN] Download Fehler:', error);
+                statusLine.textContent = 'Download fehlgeschlagen';
+                downloadBtn.disabled = false;
+                downloadBtn.textContent = 'Ordner herunterladen';
             }
         });
 
-        bundleBtn.addEventListener('click', async () => {
-            if (!bulkEntries.length) return;
-
-            bundleBtn.disabled = true;
-            bundleBtn.textContent = 'Bundle wird erstellt...';
-
-            try {
-                const response = await fetch('/api/stammdaten/download-bulk', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ entries: bulkEntries })
-                });
-
-                if (!response.ok) {
-                    let payload = {};
-                    try {
-                        payload = await response.json();
-                    } catch {
-                        // ignore
-                    }
-                    statusLine.textContent = payload.error || 'Bundle-Download fehlgeschlagen.';
-                    return;
-                }
-
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `stammdaten_bundle_${Date.now()}.zip`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                window.setTimeout(() => window.URL.revokeObjectURL(url), 4000);
-                statusLine.textContent = 'Bundle erfolgreich geladen.';
-            } catch (error) {
-                console.error('[STAMMDATEN] Bundle Fehler:', error);
-                statusLine.textContent = 'Bundle-Download fehlgeschlagen.';
-            } finally {
-                bundleBtn.disabled = false;
-                bundleBtn.textContent = `Großen Ordner laden (${bulkEntries.length})`;
-            }
-        });
-
-        bucketStatsBtn.addEventListener('click', async () => {
-            if (bucketStatsBtn.disabled) return;
-            
-            bucketStatsBtn.disabled = true;
-            bucketStatsBtn.textContent = 'Lädt Statistiken...';
-            statusLine.textContent = 'Berechne Bucket-Größen...';
-            resultsBox.textContent = 'Lädt Statistiken von allen Buckets...\nBitte warten...';
-            downloadBtn.hidden = true;
-
-            try {
-                const response = await fetch('/api/stammdaten/bucket-stats');
-                
-                if (!response.ok) {
-                    const errorText = await response.text().catch(() => 'Unbekannter Fehler');
-                    showError(`HTTP ${response.status}: ${errorText}`);
-                    statusLine.textContent = 'Fehler beim Laden der Statistiken.';
-                    return;
-                }
-
-                const payload = await response.json().catch((err) => {
-                    console.error('[STAMMDATEN] JSON Parse Fehler:', err);
-                    return { success: false, error: 'Ungültige Antwort vom Server' };
-                });
-
-                if (!payload.success) {
-                    showError(payload.error || 'Statistiken konnten nicht geladen werden.');
-                    statusLine.textContent = 'Fehler beim Laden der Statistiken.';
-                    return;
-                }
-
-                const { buckets, totals } = payload;
-                const lines = [
-                    '=== BUCKET-STATISTIKEN ===',
-                    '',
-                    `Gesamt: ${totals.objectCount.toLocaleString('de-DE')} Objekte`,
-                    `Gesamtgröße: ${totals.sizeGB.toFixed(2)} GB`,
-                    '',
-                    '--- Einzelne Buckets ---',
-                    ''
-                ];
-
-                buckets.forEach((b) => {
-                    const sizeGB = b.sizeGB.toFixed(2);
-                    const count = b.objectCount.toLocaleString('de-DE');
-                    const error = b.error ? ` [FEHLER: ${b.error}]` : '';
-                    lines.push(`${b.bucket}:`);
-                    lines.push(`  ${count} Objekte • ${sizeGB} GB${error}`);
-                    lines.push('');
-                });
-
-                resultsBox.textContent = lines.join('\n');
-                statusLine.textContent = `Statistiken geladen: ${totals.sizeGB.toFixed(2)} GB gesamt`;
-            } catch (error) {
-                console.error('[STAMMDATEN] Statistiken Fehler:', error);
-                showError('Fehler beim Laden der Statistiken: ' + (error.message || 'Unbekannter Fehler'));
-                statusLine.textContent = 'Statistiken fehlgeschlagen.';
-            } finally {
-                bucketStatsBtn.disabled = false;
-                bucketStatsBtn.textContent = 'Bucket-Statistiken';
-            }
-        });
-
-        downloadAllBucketsBtn.addEventListener('click', async () => {
-            if (downloadAllBucketsBtn.disabled) return;
-            
-            const confirmed = confirm('WARNUNG: Dies wird alle 5 Buckets herunterladen. Das kann sehr groß werden und lange dauern. Fortfahren?');
-            if (!confirmed) return;
-
-            downloadAllBucketsBtn.disabled = true;
-            downloadAllBucketsBtn.textContent = 'Download läuft...';
-            statusLine.textContent = 'Lade alle Buckets herunter... Dies kann mehrere Minuten dauern.';
-            resultsBox.textContent = 'Download gestartet...\nBitte warten, dies kann eine Weile dauern.';
-
-            try {
-                const response = await fetch('/api/stammdaten/download-all-buckets');
-                
-                if (!response.ok) {
-                    const errorText = await response.text().catch(() => 'Unbekannter Fehler');
-                    showError(`HTTP ${response.status}: ${errorText}`);
-                    statusLine.textContent = 'Download fehlgeschlagen.';
-                    return;
-                }
-
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `alle_buckets_${new Date().toISOString().replace(/[:.]/g, '-')}.zip`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                window.setTimeout(() => window.URL.revokeObjectURL(url), 4000);
-                
-                statusLine.textContent = 'Download erfolgreich abgeschlossen.';
-                resultsBox.textContent = 'Alle Buckets wurden erfolgreich heruntergeladen.';
-            } catch (error) {
-                console.error('[STAMMDATEN] Download aller Buckets Fehler:', error);
-                showError('Fehler beim Download: ' + (error.message || 'Unbekannter Fehler'));
-                statusLine.textContent = 'Download fehlgeschlagen.';
-            } finally {
-                downloadAllBucketsBtn.disabled = false;
-                downloadAllBucketsBtn.textContent = 'Alle Buckets herunterladen';
-            }
-        });
+        // Initialisierung
+        loadBuckets();
     </script>
 </body>
 </html>
-
